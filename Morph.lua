@@ -79,9 +79,9 @@ local bafTimer = 0
 
 -- Disturb (Fling) variables
 local flingConnection = nil
-local draggingSlider = false
+local lastTouchTime = 0
 
--- Fling detection decal
+-- Fling detection decal (анти-античит)
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
     local detection = Instance.new("Decal")
     detection.Name = "juisdfj0i32i0eidsuf0iok"
@@ -734,43 +734,89 @@ local function startFling()
     
     if not States.Fling then return end
     
-    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    local character = player.Character
+    if not character then return end
     
-    flingConnection = RunService.RenderStepped:Connect(function()
-        if not States.Fling then return end
-        
-        c = player.Character
-        hrp = c and c:FindFirstChild("HumanoidRootPart")
-        
-        if not (c and c.Parent and hrp and hrp.Parent) then
-            return
-        end
-        
-        vel = hrp.Velocity
-        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
-        RunService.RenderStepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel
-        end
-        
-        RunService.Stepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel + Vector3.new(0, movel, 0)
-            movel = movel * -1
-        end
-    end)
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
     
-    Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
+    -- Создаём невидимую сферу вокруг игрока для детекта касаний
+    local touchPart = Instance.new("Part")
+    touchPart.Name = "FlingDetector"
+    touchPart.Size = Vector3.new(8, 8, 8)
+    touchPart.Transparency = 1
+    touchPart.CanCollide = true
+    touchPart.Anchored = false
+    touchPart.Massless = true
+    
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = rootPart
+    weld.Part1 = touchPart
+    weld.Parent = touchPart
+    
+    touchPart.Parent = character
+    
+    local function onTouched(hit)
+        local now = tick()
+        if now - lastTouchTime < 0.1 then return end -- защита от спама
+        
+        local hitParent = hit.Parent
+        if not hitParent then return end
+        
+        -- Ищем цель (игрока)
+        local targetPlayer = Players:GetPlayerFromCharacter(hitParent)
+        if not targetPlayer or targetPlayer == player then return end
+        
+        local targetChar = targetPlayer.Character
+        if not targetChar then return end
+        
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+        if not targetRoot or not targetHumanoid then return end
+        
+        -- Отключаем сидение если есть
+        if targetHumanoid.Sit then
+            targetHumanoid.Sit = false
+        end
+        
+        -- Вычисляем направление от нас к цели
+        local direction = (targetRoot.Position - rootPart.Position).Unit
+        direction = Vector3.new(direction.X, 0.2, direction.Z).Unit -- добавляем вертикальную компоненту
+        
+        -- Применяем силу флинга
+        local flingForce = direction * States.FlingPower
+        
+        -- Устанавливаем скорость цели
+        targetRoot.Velocity = flingForce
+        targetRoot.AssemblyLinearVelocity = flingForce
+        
+        lastTouchTime = now
+        
+        Notify("Fling! Power: " .. States.FlingPower, COLORS.Accent)
+    end
+    
+    touchPart.Touched:Connect(onTouched)
+    
+    -- Сохраняем парт чтобы удалить при выключении
+    flingConnection = {
+        Disconnect = function()
+            if touchPart and touchPart.Parent then
+                touchPart:Destroy()
+            end
+        end
+    }
+    
+    Notify("Fling ON (Touch players to fling) - Power: " .. States.FlingPower, COLORS.Accent)
 end
 
 local function stopFling()
     if flingConnection then
-        flingConnection:Disconnect()
+        flingConnection.Disconnect()
         flingConnection = nil
     end
-    Notify("Fling OFF", COLORS.Accent)
+    if States.Fling then
+        Notify("Fling OFF", COLORS.Accent)
+    end
 end
 
 -- =============================================================
@@ -1604,161 +1650,21 @@ rowOrder = rowOrder + 1
 rowOrder = 1
 
 -- Fling Toggle
-local flingToggle, _ = CreateToggle(Pages.Disturb, "Fling", "Fling", rowOrder)
+local flingToggle, _ = CreateToggle(Pages.Disturb, "Fling (Touch Player)", "Fling", rowOrder)
 rowOrder = rowOrder + 1
 
--- Fling Power Label (styled like other labels)
-local flingPowerFrame = Instance.new("Frame", Pages.Disturb)
-flingPowerFrame.Size = UDim2.new(1, 0, 0, 50)
-flingPowerFrame.BackgroundColor3 = GetRowColor(rowOrder)
-flingPowerFrame.BackgroundTransparency = 0
-flingPowerFrame.LayoutOrder = rowOrder
-flingPowerFrame.ZIndex = 1
-Instance.new("UICorner", flingPowerFrame).CornerRadius = UDim.new(0, 3)
-
-local flingPowerLabel = Instance.new("TextLabel", flingPowerFrame)
-flingPowerLabel.Text = "Fling Power: 10000"
-flingPowerLabel.Size = UDim2.new(1, -12, 0, 16)
-flingPowerLabel.Position = UDim2.new(0, 6, 0, 4)
-flingPowerLabel.BackgroundTransparency = 1
-flingPowerLabel.TextColor3 = COLORS.Text
-flingPowerLabel.Font = "Gotham"
-flingPowerLabel.TextSize = 9
-flingPowerLabel.TextXAlignment = "Left"
-flingPowerLabel.ZIndex = 1
-
--- Fling Power Bar (Slider Background)
-local flingPowerBar = Instance.new("Frame", flingPowerFrame)
-flingPowerBar.Size = UDim2.new(1, -12, 0, 12)
-flingPowerBar.Position = UDim2.new(0, 6, 0, 24)
-flingPowerBar.BackgroundColor3 = COLORS.SideBG
-flingPowerBar.ZIndex = 1
-Instance.new("UICorner", flingPowerBar).CornerRadius = UDim.new(0, 4)
-
--- Fling Power Slider (the draggable part)
-local flingPowerSlider = Instance.new("TextButton", flingPowerBar)
-flingPowerSlider.Size = UDim2.new(0.2, 0, 1, 0) -- 10000 / 50000 = 0.2
-flingPowerSlider.Position = UDim2.new(0.2, 0, 0, 0)
-flingPowerSlider.BackgroundColor3 = COLORS.Accent
-flingPowerSlider.Text = ""
-flingPowerSlider.ZIndex = 1
-Instance.new("UICorner", flingPowerSlider).CornerRadius = UDim.new(0, 4)
-
--- Update Fling Power function
-local function updateFlingPower(value)
-    States.FlingPower = value
-    flingPowerLabel.Text = "Fling Power: " .. value
-end
-
--- Slider dragging logic
-flingPowerSlider.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = true
+-- Поле ввода мощности флинга
+local flingPowerInput = CreateInputRow(Pages.Disturb, "Fling Power", "5000 - 100000", "10000", rowOrder, function(value)
+    local power = tonumber(value)
+    if power then
+        power = math.clamp(power, 5000, 100000)
+        States.FlingPower = power
+        flingPowerInput.Text = tostring(power)
+        Notify("Fling Power: " .. power, COLORS.Accent)
+    else
+        flingPowerInput.Text = tostring(States.FlingPower)
     end
 end)
-
-flingPowerSlider.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local mousePos = input.Position.X
-        local barPos = flingPowerBar.AbsolutePosition.X
-        local barSize = flingPowerBar.AbsoluteSize.X
-        local newPos = math.clamp((mousePos - barPos) / barSize, 0, 1)
-        
-        flingPowerSlider.Position = UDim2.new(newPos, 0, 0, 0)
-        local power = math.floor(newPos * 50000) + 5000
-        updateFlingPower(power)
-        
-        if States.Fling then
-            Notify("Fling Power: " .. power, COLORS.Accent)
-        end
-    end
-end)
-
-rowOrder = rowOrder + 1
-
--- Quick Power Preset Buttons
-local presetFrame = Instance.new("Frame", Pages.Disturb)
-presetFrame.Size = UDim2.new(1, 0, 0, 30)
-presetFrame.BackgroundColor3 = GetRowColor(rowOrder)
-presetFrame.BackgroundTransparency = 0
-presetFrame.LayoutOrder = rowOrder
-presetFrame.ZIndex = 1
-Instance.new("UICorner", presetFrame).CornerRadius = UDim.new(0, 3)
-
-local presetLabel = Instance.new("TextLabel", presetFrame)
-presetLabel.Text = "Quick Power:"
-presetLabel.Size = UDim2.new(1, -12, 0, 12)
-presetLabel.Position = UDim2.new(0, 6, 0, 2)
-presetLabel.BackgroundTransparency = 1
-presetLabel.TextColor3 = COLORS.Text
-presetLabel.Font = "Gotham"
-presetLabel.TextSize = 8
-presetLabel.TextXAlignment = "Left"
-presetLabel.ZIndex = 1
-
-local btnLow = Instance.new("TextButton", presetFrame)
-btnLow.Size = UDim2.new(0.3, -4, 0, 12)
-btnLow.Position = UDim2.new(0, 6, 0, 16)
-btnLow.BackgroundColor3 = COLORS.SideBG
-btnLow.Text = "Low (5k)"
-btnLow.TextColor3 = COLORS.Text
-btnLow.Font = "Gotham"
-btnLow.TextSize = 7
-btnLow.ZIndex = 1
-Instance.new("UICorner", btnLow).CornerRadius = UDim.new(0, 3)
-
-local btnMid = Instance.new("TextButton", presetFrame)
-btnMid.Size = UDim2.new(0.3, -4, 0, 12)
-btnMid.Position = UDim2.new(0.35, 2, 0, 16)
-btnMid.BackgroundColor3 = COLORS.SideBG
-btnMid.Text = "Mid (30k)"
-btnMid.TextColor3 = COLORS.Text
-btnMid.Font = "Gotham"
-btnMid.TextSize = 7
-btnMid.ZIndex = 1
-Instance.new("UICorner", btnMid).CornerRadius = UDim.new(0, 3)
-
-local btnHigh = Instance.new("TextButton", presetFrame)
-btnHigh.Size = UDim2.new(0.3, -4, 0, 12)
-btnHigh.Position = UDim2.new(0.7, -2, 0, 16)
-btnHigh.BackgroundColor3 = COLORS.SideBG
-btnHigh.Text = "High (55k)"
-btnHigh.TextColor3 = COLORS.Text
-btnHigh.Font = "Gotham"
-btnHigh.TextSize = 7
-btnHigh.ZIndex = 1
-Instance.new("UICorner", btnHigh).CornerRadius = UDim.new(0, 3)
-
-btnLow.MouseButton1Click:Connect(function()
-    local power = 5000
-    local pos = (power - 5000) / 50000
-    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
-    updateFlingPower(power)
-    Notify("Fling Power: " .. power, COLORS.Accent)
-end)
-
-btnMid.MouseButton1Click:Connect(function()
-    local power = 30000
-    local pos = (power - 5000) / 50000
-    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
-    updateFlingPower(power)
-    Notify("Fling Power: " .. power, COLORS.Accent)
-end)
-
-btnHigh.MouseButton1Click:Connect(function()
-    local power = 55000
-    local pos = (power - 5000) / 50000
-    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
-    updateFlingPower(power)
-    Notify("Fling Power: " .. power, COLORS.Accent)
-end)
-
 rowOrder = rowOrder + 1
 
 -- Stop Fling button
