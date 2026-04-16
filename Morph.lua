@@ -780,10 +780,18 @@ local function stopFling()
         task.cancel(flingThread)
         flingThread = nil
     end
+    
+    -- === FIX: Сброс скорости при выключении ===
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.Velocity = Vector3.new(0, 0, 0)  -- Полный сброс скорости
+        -- Дополнительно: сброс угловой скорости
+        hrp.RotVelocity = Vector3.new(0, 0, 0)
+    end
+    -- ========================================
+    
     Notify("Fling OFF", COLORS.Accent)
 end
-
--- =============================================================
 
 local function makeDraggable(obj, parent)
     local dragging, dragStart, startPos
