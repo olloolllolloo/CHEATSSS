@@ -1,3 +1,4 @@
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -78,10 +79,9 @@ local bafDirection = 1
 local bafTimer = 0
 
 -- Disturb (Fling) variables
-local flingConnection = nil
-local lastTouchTime = 0
+local flingThread = nil
 
--- Fling detection decal (анти-античит)
+-- Fling detection decal
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
     local detection = Instance.new("Decal")
     detection.Name = "juisdfj0i32i0eidsuf0iok"
@@ -729,94 +729,58 @@ end
 
 -- ================= DISTURB (FLING) FEATURES =================
 
-local function startFling()
-    if flingConnection then flingConnection:Disconnect() end
+local function flingLoop()
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
     
-    if not States.Fling then return end
-    
-    local character = player.Character
-    if not character then return end
-    
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    
-    -- Создаём невидимую сферу вокруг игрока для детекта касаний
-    local touchPart = Instance.new("Part")
-    touchPart.Name = "FlingDetector"
-    touchPart.Size = Vector3.new(8, 8, 8)
-    touchPart.Transparency = 1
-    touchPart.CanCollide = true
-    touchPart.Anchored = false
-    touchPart.Massless = true
-    
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0 = rootPart
-    weld.Part1 = touchPart
-    weld.Parent = touchPart
-    
-    touchPart.Parent = character
-    
-    local function onTouched(hit)
-        local now = tick()
-        if now - lastTouchTime < 0.1 then return end -- защита от спама
+    while States.Fling do
+        RunService.Heartbeat:Wait()
         
-        local hitParent = hit.Parent
-        if not hitParent then return end
-        
-        -- Ищем цель (игрока)
-        local targetPlayer = Players:GetPlayerFromCharacter(hitParent)
-        if not targetPlayer or targetPlayer == player then return end
-        
-        local targetChar = targetPlayer.Character
-        if not targetChar then return end
-        
-        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-        local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
-        if not targetRoot or not targetHumanoid then return end
-        
-        -- Отключаем сидение если есть
-        if targetHumanoid.Sit then
-            targetHumanoid.Sit = false
-        end
-        
-        -- Вычисляем направление от нас к цели
-        local direction = (targetRoot.Position - rootPart.Position).Unit
-        direction = Vector3.new(direction.X, 0.2, direction.Z).Unit -- добавляем вертикальную компоненту
-        
-        -- Применяем силу флинга
-        local flingForce = direction * States.FlingPower
-        
-        -- Устанавливаем скорость цели
-        targetRoot.Velocity = flingForce
-        targetRoot.AssemblyLinearVelocity = flingForce
-        
-        lastTouchTime = now
-        
-        Notify("Fling! Power: " .. States.FlingPower, COLORS.Accent)
-    end
-    
-    touchPart.Touched:Connect(onTouched)
-    
-    -- Сохраняем парт чтобы удалить при выключении
-    flingConnection = {
-        Disconnect = function()
-            if touchPart and touchPart.Parent then
-                touchPart:Destroy()
+        if States.Fling then
+            while States.Fling and not (c and c.Parent and hrp and hrp.Parent) do
+                RunService.Heartbeat:Wait()
+                c = player.Character
+                hrp = c and c:FindFirstChild("HumanoidRootPart")
+            end
+            
+            if States.Fling and c and c.Parent and hrp and hrp.Parent then
+                vel = hrp.Velocity
+                hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
+                RunService.RenderStepped:Wait()
+                
+                if c and c.Parent and hrp and hrp.Parent then
+                    hrp.Velocity = vel
+                end
+                
+                RunService.Stepped:Wait()
+                
+                if c and c.Parent and hrp and hrp.Parent then
+                    hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                    movel = movel * -1
+                end
             end
         end
-    }
+    end
+end
+
+local function startFling()
+    if flingThread then
+        States.Fling = false
+        task.cancel(flingThread)
+        flingThread = nil
+    end
     
-    Notify("Fling ON (Touch players to fling) - Power: " .. States.FlingPower, COLORS.Accent)
+    States.Fling = true
+    flingThread = task.spawn(flingLoop)
+    Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
 end
 
 local function stopFling()
-    if flingConnection then
-        flingConnection.Disconnect()
-        flingConnection = nil
+    States.Fling = false
+    if flingThread then
+        task.cancel(flingThread)
+        flingThread = nil
     end
-    if States.Fling then
-        Notify("Fling OFF", COLORS.Accent)
-    end
+    Notify("Fling OFF", COLORS.Accent)
 end
 
 -- =============================================================
@@ -1649,15 +1613,13 @@ rowOrder = rowOrder + 1
 -- ============ DISTURB (FLING) TAB ============
 rowOrder = 1
 
--- Fling Toggle
-local flingToggle, _ = CreateToggle(Pages.Disturb, "Fling (Touch Player)", "Fling", rowOrder)
+local flingToggle, _ = CreateToggle(Pages.Disturb, "Fling", "Fling", rowOrder)
 rowOrder = rowOrder + 1
 
--- Поле ввода мощности флинга
-local flingPowerInput = CreateInputRow(Pages.Disturb, "Fling Power", "5000 - 100000", "10000", rowOrder, function(value)
+local flingPowerInput = CreateInputRow(Pages.Disturb, "Fling Power", "5000 - 55000", "10000", rowOrder, function(value)
     local power = tonumber(value)
     if power then
-        power = math.clamp(power, 5000, 100000)
+        power = math.clamp(power, 5000, 55000)
         States.FlingPower = power
         flingPowerInput.Text = tostring(power)
         Notify("Fling Power: " .. power, COLORS.Accent)
@@ -1667,7 +1629,6 @@ local flingPowerInput = CreateInputRow(Pages.Disturb, "Fling Power", "5000 - 100
 end)
 rowOrder = rowOrder + 1
 
--- Stop Fling button
 local stopFlingBtn = CreateButton(Pages.Disturb, "STOP FLING", rowOrder, function()
     if States.Fling then
         States.Fling = false
