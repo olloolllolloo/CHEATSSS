@@ -37,7 +37,9 @@ local States = {
     Spin = false, SpinAxisX = false, SpinAxisY = false, SpinAxisZ = false,
     BAF = false, Combo = false,
     -- Disturb features
-    Fling = false, FlingPower = 10000
+    Fling = false, FlingPower = 10000,
+    -- FLY FEATURE
+    Fly = false  -- <-- ДОБАВЬ ЭТУ СТРОКУ
 }
 
 local ESP_COLORS = {Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255)}
@@ -719,6 +721,7 @@ local function stopCombo()
 end
 
 local function stopAllJokeFeatures()
+	stopFly()
     States.Spin = false
     States.BAF = false
     States.Combo = false
@@ -773,7 +776,123 @@ local function startFling()
     flingThread = task.spawn(flingLoop)
     Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
 end
+-- ================= FLY FEATURE =================
+local flyConnection = nil
+local flyBodyVelocity = nil
 
+local function startFly()
+    if flyConnection then 
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if not player.Character then return end
+    
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not hrp then return end
+    
+    -- Отключаем гравитацию
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+    humanoid.PlatformStand = true
+    
+    -- Создаём BodyVelocity для полёта
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyVelocity.Parent = hrp
+    
+    local flySpeed = 50
+    
+    -- Основной цикл полёта
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not States.Fly or not player.Character then
+            return
+        end
+        
+        local currentHrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if not currentHrp or not flyBodyVelocity or flyBodyVelocity.Parent ~= currentHrp then
+            return
+        end
+        
+        -- Получаем направление камеры
+        local camera = workspace.CurrentCamera
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        -- WASD управление
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+        
+        -- Нормализуем и применяем скорость
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit
+        end
+        
+        flyBodyVelocity.Velocity = moveDirection * flySpeed
+        
+        -- Если нет нажатых клавиш, зависаем на месте
+        if moveDirection.Magnitude == 0 then
+            flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+    end)
+    
+    Notify("Fly ON - Use WASD + Space/Control", COLORS.Accent)
+end
+
+local function stopFly()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if flyBodyVelocity then
+        flyBodyVelocity:Destroy()
+        flyBodyVelocity = nil
+    end
+    
+    if player.Character then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            -- Включаем гравитацию обратно
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, true)
+            humanoid.PlatformStand = false
+        end
+    end
+    
+    Notify("Fly OFF", COLORS.Accent)
+end
 local function stopFling()
     States.Fling = false
     if flingThread then
@@ -859,6 +978,7 @@ Title.Font = "GothamBold"
 Title.TextSize = 10
 Title.TextXAlignment = "Left"
 
+if States.Fly then stopFly() end
 local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 22, 0, 22)
 CloseBtn.Position = UDim2.new(1, -26, 0, 1)
@@ -866,6 +986,7 @@ CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "x"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.TextSize = 14
+
 
 local MinBtn = Instance.new("TextButton", Header)
 MinBtn.Size = UDim2.new(0, 22, 0, 22)
@@ -1100,6 +1221,29 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
             else
                 stopFling()
             end
+        elseif key == "Fly" then
+    		if States.Fly then
+        		if States.Spin then
+            		States.Spin = false
+            		stopSpin()
+        		end
+        		if States.BAF then
+            		States.BAF = false
+            		stopBAF()
+        		end
+        		if States.Combo then
+            		States.Combo = false
+            		stopCombo()
+        		end
+        		if States.Fling then
+            		States.Fling = false
+            		stopFling()
+        		end
+        		startFly()
+    		else
+        		stopFly()
+    		end
+    		Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
         elseif key == "AntiAFK" and States.AntiAFK then
             startAntiAFK()
         elseif key == "Light" then
@@ -1424,7 +1568,9 @@ local u1, _ = CreateToggle(Pages.Player, "Inf Jump", "InfJump", rowOrder); rowOr
 local u2, _ = CreateToggle(Pages.Player, "No Clip", "NoClip", rowOrder); rowOrder = rowOrder + 1
 local u3, _ = CreateToggle(Pages.Player, "TP on Click", "TeleportClick", rowOrder); rowOrder = rowOrder + 1
 local u4, _ = CreateToggle(Pages.Player, "Anti AFK", "AntiAFK", rowOrder); rowOrder = rowOrder + 1
+-- Добавь это после других переключателей (перед speedInput)
 
+local u6, _ = CreateToggle(Pages.Player, "Fly", "Fly", rowOrder); rowOrder = rowOrder + 1
 local speedInput = CreateInputRow(Pages.Player, "Player Speed", "Speed value", "16", rowOrder, function(value)
     local newSpeed = tonumber(value) or 16
     if player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -1653,6 +1799,12 @@ rowOrder = rowOrder + 1
 
 -- Функция для применения всех активных фич
 local function reapplyAllActiveFeatures()
+	-- В функции reapplyAllActiveFeatures() добавь:
+	if States.Fly then
+    	stopFly()
+    	task.wait(0.1)
+    	startFly()
+	end
     if not player.Character then return end
     local character = player.Character
     local humanoid = character:FindFirstChild("Humanoid")
