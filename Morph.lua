@@ -805,6 +805,9 @@ local function startFly()
     humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
     humanoid.PlatformStand = true
     
+    -- Включаем AutoRotate чтобы персонаж смотрел в сторону движения
+    humanoid.AutoRotate = true
+    
     -- Создаём BodyVelocity для полёта
     flyBodyVelocity = Instance.new("BodyVelocity")
     flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
@@ -813,9 +816,6 @@ local function startFly()
     
     local flySpeed = 50
     
-    -- Получаем MoveDirection для мобильных устройств
-    local moveDirection = Vector3.new(0, 0, 0)
-    
     -- Основной цикл полёта
     flyConnection = RunService.RenderStepped:Connect(function()
         if not States.Fly or not player.Character then
@@ -823,43 +823,50 @@ local function startFly()
         end
         
         local currentHrp = player.Character:FindFirstChild("HumanoidRootPart")
+        local currentHumanoid = player.Character:FindFirstChild("Humanoid")
         if not currentHrp or not flyBodyVelocity or flyBodyVelocity.Parent ~= currentHrp then
             return
         end
         
         local camera = workspace.CurrentCamera
+        local cameraCF = camera.CFrame
         local moveVec = Vector3.new(0, 0, 0)
         
-        -- ========== ПОДДЕРЖКА МОБИЛЬНЫХ УСТРОЙСТВ ==========
-        
-        -- Способ 1: Используем MoveDirection от Humanoid (работает с джойстиком на мобилке)
-        local humanoid = player.Character:FindFirstChild("Humanoid")
-        if humanoid and humanoid.MoveDirection.Magnitude > 0 then
-            -- Джойстик на мобилке или клавиши WASD на ПК
-            local moveDir = humanoid.MoveDirection
-            -- Преобразуем направление относительно камеры
-            local cameraCF = camera.CFrame
-            local forward = cameraCF.LookVector * moveDir.Z
-            local right = cameraCF.RightVector * moveDir.X
-            moveVec = (forward + right).Unit * flySpeed
+        -- Получаем направление от джойстика (MoveDirection)
+        if currentHumanoid and currentHumanoid.MoveDirection.Magnitude > 0 then
+            local moveDir = currentHumanoid.MoveDirection
+            
+            -- Исправляем направления:
+            -- moveDir.X = влево/вправо (A/D или джойстик)
+            -- moveDir.Z = вперёд/назад (W/S или джойстик)
+            -- moveDir.Y = подъём/спуск (Space/Control или кнопки на мобилке)
+            
+            -- Правильное преобразование относительно камеры
+            local forward = cameraCF.LookVector * moveDir.Z      -- Вперёд/назад
+            local right = cameraCF.RightVector * moveDir.X       -- Влево/вправо
+            local up = Vector3.new(0, moveDir.Y, 0)              -- Вверх/вниз (если есть)
+            
+            moveVec = (forward + right + up) * flySpeed
+            
+            -- Поворачиваем персонажа в сторону движения (только горизонтально)
+            if moveVec.Magnitude > 0.1 and (math.abs(moveDir.X) > 0.1 or math.abs(moveDir.Z) > 0.1) then
+                local directionOnGround = Vector3.new(moveVec.X, 0, moveVec.Z).Unit
+                if directionOnGround.Magnitude > 0 then
+                    local targetAngle = math.atan2(directionOnGround.X, directionOnGround.Z)
+                    currentHrp.CFrame = CFrame.new(currentHrp.Position) * CFrame.Angles(0, targetAngle, 0)
+                end
+            end
         end
-        
-        -- Способ 2: Кнопки на экране (если нужны дополнительные)
-        -- Подъём/спуск через специальные кнопки UI (можно добавить позже)
-        
-        -- Для мобильных: кнопки громкости для подъёма/спуска (опционально)
-        -- Это не обязательно, просто доп. возможность
         
         -- Применяем скорость
         if moveVec.Magnitude > 0 then
             flyBodyVelocity.Velocity = moveVec
         else
-            -- Если джойстик не тронут, зависаем на месте
             flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
         end
     end)
     
-    Notify("Fly ON - Use joystick to move!", COLORS.Accent)
+    Notify("Fly ON - Move with joystick!", COLORS.Accent)
 end
 
 local function stopFly()
