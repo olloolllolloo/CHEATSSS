@@ -4,15 +4,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
-
--- Anti-detection
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-	local detection = Instance.new("Decal")
-	detection.Name = "juisdfj0i32i0eidsuf0iok"
-	detection.Parent = ReplicatedStorage
-end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MorphCheat_Final_Neon"
@@ -38,10 +30,7 @@ local States = {
     InfJump = false, NoClip = false, TeleportClick = false, AntiAFK = false,
     ESP = false, ESPColorIndex = 1, NameESP = false, NameESPColorIndex = 1, HealthESP = false,
     ShowNotifications = true, TapToIdentify = false, Light = false, FollowTP = false,
-    ObjectHighlighter = false, HighlightColorIndex = 1,
-    Spin = false, SpinAxisX = false, SpinAxisY = false, SpinAxisZ = false,
-    BAF = false, Combo = false,
-    Fling = false, FlingPower = 10000
+    ObjectHighlighter = false, HighlightColorIndex = 1
 }
 
 local ESP_COLORS = {Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255)}
@@ -65,18 +54,20 @@ local camera = workspace.CurrentCamera
 local followedPlayer = nil
 local originalCameraSubject = nil
 local cameraConnection = nil
+
 local selectedFollowPlayer = nil
 local followTpConnection = nil
+local savedPosition = nil
+
 local healthBillboards = {}
 local nameBillboards = {}
+
 local activeDropdowns = {}
 
-local spinConnection = nil
-local bafConnection = nil
-local comboConnection = nil
-local bafDirection = 1
-local bafTimer = 0
-local flingConnection = nil
+-- Object highlighter variables
+local highlightedObjects = {}  -- Track highlighted objects
+local objectHighlightConnection = nil
+local highlightSearchTerm = ""
 
 local function CloseAllDropdowns()
     for _, dropdown in pairs(activeDropdowns) do
@@ -312,6 +303,7 @@ local function startCameraFollow(targetPlayer)
     end
     
     followedPlayer = targetPlayer
+    
     camera.CameraSubject = targetPlayer.Character.Humanoid
     camera.CameraType = Enum.CameraType.Custom
     
@@ -335,11 +327,14 @@ local function stopCameraFollow()
         cameraConnection:Disconnect()
         cameraConnection = nil
     end
+    
     followedPlayer = nil
+    
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         camera.CameraSubject = player.Character.Humanoid
     end
     camera.CameraType = Enum.CameraType.Custom
+    
     Notify("Camera returned to you!", COLORS.Accent)
 end
 
@@ -439,10 +434,7 @@ local function updateNameESP()
     end
 end
 
-local highlightedObjects = {}
-local objectHighlightConnection = nil
-local highlightSearchTerm = ""
-
+-- ================= OBJECT HIGHLIGHTER SYSTEM =================
 local function clearObjectHighlights()
     for obj, highlight in pairs(highlightedObjects) do
         if highlight and highlight.Parent then
@@ -454,11 +446,15 @@ end
 
 local function findAndHighlightObjects(searchTerm)
     clearObjectHighlights()
-    if not States.ObjectHighlighter or searchTerm == "" then return end
+    
+    if not States.ObjectHighlighter or searchTerm == "" then
+        return
+    end
     
     local searchLower = string.lower(searchTerm)
     local allParts = {}
     
+    -- Search through entire workspace for BaseParts
     local function searchForParts(container)
         for _, obj in pairs(container:GetChildren()) do
             if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
@@ -470,11 +466,14 @@ local function findAndHighlightObjects(searchTerm)
     end
     
     searchForParts(Workspace)
+    
     local highlightedCount = 0
     
     for _, part in pairs(allParts) do
         local partNameLower = string.lower(part.Name)
+        -- Check if the name contains the search term (not exact match, but close/contains)
         if partNameLower:find(searchLower) then
+            -- Create highlight for this part
             local highlight = Instance.new("Highlight")
             highlight.Name = "ObjectHighlighter"
             highlight.Adornee = part
@@ -484,6 +483,7 @@ local function findAndHighlightObjects(searchTerm)
             highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Parent = part
+            
             highlightedObjects[part] = highlight
             highlightedCount = highlightedCount + 1
         end
@@ -501,7 +501,11 @@ local function startObjectHighlighter(searchTerm)
         objectHighlightConnection:Disconnect()
         objectHighlightConnection = nil
     end
+    
+    -- Initial highlight
     findAndHighlightObjects(searchTerm)
+    
+    -- Watch for new objects being added
     objectHighlightConnection = Workspace.DescendantAdded:Connect(function(descendant)
         if States.ObjectHighlighter and highlightSearchTerm ~= "" then
             if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
@@ -542,230 +546,7 @@ local function updateHighlighterColor()
         end
     end
 end
-
--- NEW FLING SYSTEM
-local function startFling()
-    if flingConnection then flingConnection:Disconnect() end
-    if not States.Fling then return end
-    
-    local hrp, c, vel, movel = nil, nil, nil, 0.1
-    
-    flingConnection = RunService.RenderStepped:Connect(function()
-        if not States.Fling then return end
-        
-        c = player.Character
-        hrp = c and c:FindFirstChild("HumanoidRootPart")
-        
-        if not (c and c.Parent and hrp and hrp.Parent) then return end
-        
-        vel = hrp.Velocity
-        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
-        RunService.RenderStepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel
-        end
-        
-        RunService.Stepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel + Vector3.new(0, movel, 0)
-            movel = movel * -1
-        end
-    end)
-end
-
-local function stopFling()
-    if flingConnection then
-        flingConnection:Disconnect()
-        flingConnection = nil
-    end
-end
-
-local function flingNearbyPlayers(power)
-    if not player.Character then return end
-    local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
-    if not localRoot then return end
-    
-    local flungCount = 0
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= player and otherPlayer.Character then
-            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local otherHumanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if otherRoot and otherHumanoid then
-                local distance = (localRoot.Position - otherRoot.Position).Magnitude
-                if distance < 15 then
-                    otherHumanoid.PlatformStand = true
-                    
-                    local direction = (otherRoot.Position - localRoot.Position).Unit
-                    direction = Vector3.new(direction.X, 0.8, direction.Z).Unit
-                    
-                    local force = direction * (power * 1.5)
-                    local angularForce = Vector3.new(
-                        math.random(-power * 2, power * 2),
-                        math.random(-power * 2, power * 2),
-                        math.random(-power * 2, power * 2)
-                    )
-                    
-                    otherRoot.AssemblyLinearVelocity = force
-                    otherRoot.AssemblyAngularVelocity = angularForce
-                    
-                    task.wait(0.3)
-                    if otherHumanoid and otherHumanoid.Parent then
-                        otherHumanoid.PlatformStand = false
-                    end
-                    
-                    flungCount = flungCount + 1
-                end
-            end
-        end
-    end
-    
-    if flungCount > 0 then
-        Notify("Flung " .. flungCount .. " player(s) with power " .. power .. "!", COLORS.Accent)
-    else
-        Notify("No players nearby to fling!", COLORS.Accent)
-    end
-end
-
-local function startSpin()
-    if spinConnection then spinConnection:Disconnect() end
-    if not States.Spin then return end
-    if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-        Notify("Select at least one axis for spin!", COLORS.Accent)
-        States.Spin = false
-        return
-    end
-    
-    spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.Spin or not player.Character then return end
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        
-        local rotationSpeed = 720
-        local rotationDelta = rotationSpeed * deltaTime
-        local cframe = rootPart.CFrame
-        local angles = Vector3.new(0, 0, 0)
-        
-        if States.SpinAxisX then angles = angles + Vector3.new(rotationDelta, 0, 0) end
-        if States.SpinAxisY then angles = angles + Vector3.new(0, rotationDelta, 0) end
-        if States.SpinAxisZ then angles = angles + Vector3.new(0, 0, rotationDelta) end
-        
-        local newCFrame = cframe
-        if angles.X ~= 0 then newCFrame = newCFrame * CFrame.Angles(math.rad(angles.X), 0, 0) end
-        if angles.Y ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, math.rad(angles.Y), 0) end
-        if angles.Z ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, 0, math.rad(angles.Z)) end
-        
-        rootPart.CFrame = newCFrame
-    end)
-end
-
-local function stopSpin()
-    if spinConnection then
-        spinConnection:Disconnect()
-        spinConnection = nil
-    end
-end
-
-local function startBAF()
-    if bafConnection then bafConnection:Disconnect() end
-    if not States.BAF then return end
-    
-    bafDirection = 1
-    bafTimer = 0
-    
-    bafConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.BAF or not player.Character then return end
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        
-        local cycleTime = 0.1
-        local moveDistance = 2
-        
-        bafTimer = bafTimer + deltaTime
-        if bafTimer >= cycleTime then
-            bafTimer = bafTimer - cycleTime
-            bafDirection = bafDirection * -1
-        end
-        
-        local t = bafTimer / cycleTime
-        local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
-        local forwardVector = rootPart.CFrame.LookVector
-        local newPos = rootPart.Position + forwardVector * offset
-        rootPart.CFrame = CFrame.new(newPos) * rootPart.CFrame.Rotation
-    end)
-end
-
-local function stopBAF()
-    if bafConnection then
-        bafConnection:Disconnect()
-        bafConnection = nil
-    end
-end
-
-local function startCombo()
-    if comboConnection then comboConnection:Disconnect() end
-    if not States.Combo then return end
-    if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-        Notify("Select at least one axis for combo spin!", COLORS.Accent)
-        States.Combo = false
-        return
-    end
-    
-    bafDirection = 1
-    bafTimer = 0
-    
-    comboConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.Combo or not player.Character then return end
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-        
-        local rotationSpeed = 720
-        local rotationDelta = rotationSpeed * deltaTime
-        local cframe = rootPart.CFrame
-        local angles = Vector3.new(0, 0, 0)
-        
-        if States.SpinAxisX then angles = angles + Vector3.new(rotationDelta, 0, 0) end
-        if States.SpinAxisY then angles = angles + Vector3.new(0, rotationDelta, 0) end
-        if States.SpinAxisZ then angles = angles + Vector3.new(0, 0, rotationDelta) end
-        
-        local newCFrame = cframe
-        if angles.X ~= 0 then newCFrame = newCFrame * CFrame.Angles(math.rad(angles.X), 0, 0) end
-        if angles.Y ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, math.rad(angles.Y), 0) end
-        if angles.Z ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, 0, math.rad(angles.Z)) end
-        
-        local cycleTime = 0.1
-        local moveDistance = 2
-        
-        bafTimer = bafTimer + deltaTime
-        if bafTimer >= cycleTime then
-            bafTimer = bafTimer - cycleTime
-            bafDirection = bafDirection * -1
-        end
-        
-        local t = bafTimer / cycleTime
-        local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
-        local forwardVector = newCFrame.LookVector
-        local newPos = rootPart.Position + forwardVector * offset
-        rootPart.CFrame = CFrame.new(newPos) * newCFrame.Rotation
-    end)
-end
-
-local function stopCombo()
-    if comboConnection then
-        comboConnection:Disconnect()
-        comboConnection = nil
-    end
-end
-
-local function stopAllJokeFeatures()
-    States.Spin = false
-    States.BAF = false
-    States.Combo = false
-    stopSpin()
-    stopBAF()
-    stopCombo()
-end
+-- =============================================================
 
 local function makeDraggable(obj, parent)
     local dragging, dragStart, startPos
@@ -915,8 +696,6 @@ CreatePage("Player", 1)
 CreatePage("Visual", 2)
 CreatePage("Tools", 3)
 CreatePage("Global", 4)
-CreatePage("Joke", 5)
-CreatePage("Disturb", 6)
 
 local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, colorList)
     local bgColor = GetRowColor(order)
@@ -983,72 +762,9 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
     btn.MouseButton1Click:Connect(function()
         States[key] = not States[key]
         update()
-        
-        if key == "Spin" then
-            if States.Spin then
-                if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-                    Notify("Select at least one axis for spin!", COLORS.Accent)
-                    States.Spin = false
-                    update()
-                    return
-                end
-                if States.BAF then
-                    States.BAF = false
-                    stopBAF()
-                end
-                if States.Combo then
-                    States.Combo = false
-                    stopCombo()
-                end
-                startSpin()
-                Notify(text .. " ON - Spinning!", COLORS.Accent)
-            else
-                stopSpin()
-                Notify(text .. " OFF", COLORS.Accent)
-            end
-        elseif key == "BAF" then
-            if States.BAF then
-                if States.Spin then
-                    States.Spin = false
-                    stopSpin()
-                end
-                if States.Combo then
-                    States.Combo = false
-                    stopCombo()
-                end
-                startBAF()
-                Notify(text .. " ON - Back and Forth!", COLORS.Accent)
-            else
-                stopBAF()
-                Notify(text .. " OFF", COLORS.Accent)
-            end
-        elseif key == "Combo" then
-            if States.Combo then
-                if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-                    Notify("Select at least one axis for combo spin!", COLORS.Accent)
-                    States.Combo = false
-                    update()
-                    return
-                end
-                if States.Spin then
-                    States.Spin = false
-                    stopSpin()
-                end
-                if States.BAF then
-                    States.BAF = false
-                    stopBAF()
-                end
-                startCombo()
-                Notify(text .. " ON - Spinning + Back and Forth!", COLORS.Accent)
-            else
-                stopCombo()
-                Notify(text .. " OFF", COLORS.Accent)
-            end
-        elseif key == "AntiAFK" and States.AntiAFK then
-            startAntiAFK()
-        elseif key == "Light" then
-            setLighting(States.Light)
-        elseif key == "FollowTP" then
+        if key == "AntiAFK" and States.AntiAFK then startAntiAFK() end
+        if key == "Light" then setLighting(States.Light) end
+        if key == "FollowTP" then
             if States.FollowTP and selectedFollowPlayer then
                 startFollowTP(selectedFollowPlayer)
                 Notify("Follow TP: Following " .. selectedFollowPlayer.Name, COLORS.Accent)
@@ -1056,121 +772,18 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 stopFollowTP()
                 Notify("Follow TP: Stopped", COLORS.Accent)
             end
-        elseif key == "ObjectHighlighter" then
+        end
+        if key == "ObjectHighlighter" then
             if States.ObjectHighlighter and highlightSearchTerm ~= "" then
                 startObjectHighlighter(highlightSearchTerm)
             else
                 stopObjectHighlighter()
             end
-            Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
-        elseif key == "Fling" then
-            if States.Fling then
-                startFling()
-                Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
-            else
-                stopFling()
-                Notify("Fling OFF", COLORS.Accent)
-            end
-        else
-            Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
         end
-    end)
-    
-    return update, colorBox
-end
-
-local function CreateAxisToggle(parent, text, key, order)
-    local bgColor = GetRowColor(order)
-    
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, 0, 0, 26)
-    frame.BackgroundColor3 = bgColor
-    frame.BackgroundTransparency = 0
-    frame.LayoutOrder = order
-    frame.ZIndex = 1
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Text = text
-    label.Size = UDim2.new(0.6, 0, 1, 0)
-    label.Position = UDim2.new(0, 6, 0, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = COLORS.Text
-    label.Font = "Gotham"
-    label.TextSize = 9
-    label.TextXAlignment = "Left"
-    label.ZIndex = 1
-    
-    local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 24, 0, 13)
-    btn.Position = UDim2.new(1, -12, 0.5, -6.5)
-    btn.BackgroundColor3 = COLORS.Inactive
-    btn.Text = ""
-    btn.ZIndex = 1
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-    
-    local circle = Instance.new("Frame", btn)
-    circle.Size = UDim2.new(0, 9, 0, 9)
-    circle.Position = UDim2.new(0, 2, 0.5, -4.5)
-    circle.BackgroundColor3 = COLORS.Text
-    circle.ZIndex = 1
-    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
-    
-    local function update()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = States[key] and COLORS.Accent or COLORS.Inactive}):Play()
-        TweenService:Create(circle, TweenInfo.new(0.2), {Position = States[key] and UDim2.new(1, -13, 0.5, -4.5) or UDim2.new(0, 2, 0.5, -4.5)}):Play()
-    end
-    
-    btn.MouseButton1Click:Connect(function()
-        States[key] = not States[key]
-        update()
-        
-        if States.Spin and key ~= "Spin" then
-            if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-                States.Spin = false
-                stopSpin()
-                Notify("Spin stopped - no axes selected!", COLORS.Accent)
-                for _, child in pairs(Pages.Joke:GetChildren()) do
-                    if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") and child:FindFirstChildOfClass("TextLabel").Text == "Spin" then
-                        local spinBtn = child:FindFirstChildOfClass("TextButton")
-                        if spinBtn then
-                            TweenService:Create(spinBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.Inactive}):Play()
-                            local spinCircle = spinBtn:FindFirstChildOfClass("Frame")
-                            if spinCircle then
-                                TweenService:Create(spinCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -4.5)}):Play()
-                            end
-                        end
-                        break
-                    end
-                end
-            end
-        end
-        
-        if States.Combo and key ~= "Combo" then
-            if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
-                States.Combo = false
-                stopCombo()
-                Notify("Combo stopped - no axes selected!", COLORS.Accent)
-                for _, child in pairs(Pages.Joke:GetChildren()) do
-                    if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") and child:FindFirstChildOfClass("TextLabel").Text == "Combo" then
-                        local comboBtn = child:FindFirstChildOfClass("TextButton")
-                        if comboBtn then
-                            TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.Inactive}):Play()
-                            local comboCircle = comboBtn:FindFirstChildOfClass("Frame")
-                            if comboCircle then
-                                TweenService:Create(comboCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -4.5)}):Play()
-                            end
-                        end
-                        break
-                    end
-                end
-            end
-        end
-        
         Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
     end)
     
-    return update
+    return update, colorBox
 end
 
 local function CreateButton(parent, text, order, callback)
@@ -1233,96 +846,6 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
     end
     
     return input
-end
-
-local function CreateSliderRow(parent, labelText, minVal, maxVal, defaultValue, order, callback)
-    local bgColor = GetRowColor(order)
-    
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, 0, 0, 50)
-    frame.BackgroundColor3 = bgColor
-    frame.BackgroundTransparency = 0
-    frame.LayoutOrder = order
-    frame.ZIndex = 1
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Text = labelText
-    label.Size = UDim2.new(1, -8, 0, 14)
-    label.Position = UDim2.new(0, 6, 0, 3)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = COLORS.Text
-    label.Font = "Gotham"
-    label.TextSize = 8
-    label.TextXAlignment = "Left"
-    label.ZIndex = 1
-    
-    local valueLabel = Instance.new("TextLabel", frame)
-    valueLabel.Text = tostring(defaultValue)
-    valueLabel.Size = UDim2.new(0, 40, 0, 14)
-    valueLabel.Position = UDim2.new(1, -46, 0, 3)
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.TextColor3 = COLORS.Accent
-    valueLabel.Font = "GothamBold"
-    valueLabel.TextSize = 8
-    valueLabel.TextXAlignment = "Right"
-    valueLabel.ZIndex = 1
-    
-    local slider = Instance.new("Frame", frame)
-    slider.Size = UDim2.new(1, -12, 0, 4)
-    slider.Position = UDim2.new(0, 6, 0, 24)
-    slider.BackgroundColor3 = COLORS.Inactive
-    slider.ZIndex = 1
-    Instance.new("UICorner", slider).CornerRadius = UDim.new(1, 0)
-    
-    local fill = Instance.new("Frame", slider)
-    fill.Size = UDim2.new((defaultValue - minVal) / (maxVal - minVal), 0, 1, 0)
-    fill.BackgroundColor3 = COLORS.Accent
-    fill.ZIndex = 1
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    
-    local knob = Instance.new("TextButton", slider)
-    knob.Size = UDim2.new(0, 12, 0, 12)
-    knob.Position = UDim2.new((defaultValue - minVal) / (maxVal - minVal), -6, 0.5, -6)
-    knob.BackgroundColor3 = COLORS.Accent
-    knob.Text = ""
-    knob.ZIndex = 2
-    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
-    
-    local dragging = false
-    
-    local function updateSlider(value)
-        local clamped = math.clamp(value, minVal, maxVal)
-        local percent = (clamped - minVal) / (maxVal - minVal)
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        knob.Position = UDim2.new(percent, -6, 0.5, -6)
-        valueLabel.Text = tostring(math.floor(clamped))
-        States.FlingPower = clamped
-        if callback then callback(clamped) end
-    end
-    
-    knob.MouseButton1Down:Connect(function()
-        dragging = true
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = input.Position
-            local sliderPos = slider.AbsolutePosition
-            local sliderWidth = slider.AbsoluteSize.X
-            local percent = math.clamp((mousePos.X - sliderPos.X) / sliderWidth, 0, 1)
-            local value = minVal + (maxVal - minVal) * percent
-            updateSlider(value)
-        end
-    end)
-    
-    return updateSlider
 end
 
 local function CreateDropdown(parent, labelText, order, onSelect)
@@ -1462,11 +985,13 @@ end
 -- ============ PLAYER TAB ============
 local rowOrder = 1
 
+-- Toggles
 local u1, _ = CreateToggle(Pages.Player, "Inf Jump", "InfJump", rowOrder); rowOrder = rowOrder + 1
 local u2, _ = CreateToggle(Pages.Player, "No Clip", "NoClip", rowOrder); rowOrder = rowOrder + 1
 local u3, _ = CreateToggle(Pages.Player, "TP on Click", "TeleportClick", rowOrder); rowOrder = rowOrder + 1
 local u4, _ = CreateToggle(Pages.Player, "Anti AFK", "AntiAFK", rowOrder); rowOrder = rowOrder + 1
 
+-- Player Speed
 local speedInput = CreateInputRow(Pages.Player, "Player Speed", "Speed value", "16", rowOrder, function(value)
     local newSpeed = tonumber(value) or 16
     if player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -1476,6 +1001,7 @@ local speedInput = CreateInputRow(Pages.Player, "Player Speed", "Speed value", "
 end)
 rowOrder = rowOrder + 1
 
+-- TP to Object
 local objectInput = CreateInputRow(Pages.Player, "TP to Object", "Object name", "", rowOrder, nil)
 rowOrder = rowOrder + 1
 
@@ -1484,6 +1010,7 @@ local tpObjectBtn = CreateButton(Pages.Player, "Teleport to Object", rowOrder, f
 end)
 rowOrder = rowOrder + 1
 
+-- TP to Coordinates
 local CoordsFrame = Instance.new("Frame", Pages.Player)
 CoordsFrame.Size = UDim2.new(1, 0, 0, 68)
 CoordsFrame.BackgroundColor3 = GetRowColor(rowOrder)
@@ -1545,11 +1072,13 @@ CoordTPBtn.MouseButton1Click:Connect(function()
     teleportToCoordinates(CoordX.Text, CoordY.Text, CoordZ.Text)
 end)
 
+-- TP to Player
 local tpToPlayerDropdown = CreateDropdown(Pages.Player, "TP to Player", rowOrder, function(selected)
     teleportToPlayer(selected)
 end)
 rowOrder = rowOrder + 1
 
+-- Follow TP to Player
 local followTPDropdown = CreateDropdown(Pages.Player, "Follow TP to Player", rowOrder, function(selected)
     selectedFollowPlayer = selected
     if States.FollowTP then
@@ -1562,6 +1091,7 @@ rowOrder = rowOrder + 1
 local u5, _ = CreateToggle(Pages.Player, "Follow TP Active", "FollowTP", rowOrder)
 rowOrder = rowOrder + 1
 
+-- Camera to Player + Return Camera Button
 local cameraDropdown = CreateDropdown(Pages.Player, "Camera to Player", rowOrder, function(selected)
     startCameraFollow(selected)
 end)
@@ -1578,6 +1108,7 @@ local v1, espColorBox = CreateToggle(Pages.Visual, "Player ESP", "ESP", rowOrder
 local v2, nameColorBox = CreateToggle(Pages.Visual, "Name ESP", "NameESP", rowOrder, true, "NameESPColorIndex", NAME_ESP_COLORS); rowOrder = rowOrder + 1
 local v3, _ = CreateToggle(Pages.Visual, "Health ESP", "HealthESP", rowOrder); rowOrder = rowOrder + 1
 
+-- ===== NEW: Object Highlighter =====
 local objectHighlightInput = CreateInputRow(Pages.Visual, "Object Name to Highlight", "e.g. Door, Chest, Key", "", rowOrder, function(value)
     highlightSearchTerm = value
     if States.ObjectHighlighter and highlightSearchTerm ~= "" then
@@ -1601,8 +1132,7 @@ local t3, _ = CreateToggle(Pages.Tools, "Light", "Light", rowOrder); rowOrder = 
 rowOrder = 1
 local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function()
     for k, v in pairs(States) do
-        if k ~= "ESPColorIndex" and k ~= "NameESPColorIndex" and k ~= "HighlightColorIndex" and
-           k ~= "SpinAxisX" and k ~= "SpinAxisY" and k ~= "SpinAxisZ" and k ~= "FlingPower" then
+        if k ~= "ESPColorIndex" and k ~= "NameESPColorIndex" and k ~= "HighlightColorIndex" then
             States[k] = false
         end
     end
@@ -1625,61 +1155,10 @@ local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function
     stopFollowTP()
     stopCameraFollow()
     stopObjectHighlighter()
-    stopAllJokeFeatures()
-    stopFling()
     selectedFollowPlayer = nil
     Notify("All settings reset!", COLORS.Accent)
 end)
 rowOrder = rowOrder + 1
-
--- ============ JOKE TAB ============
-rowOrder = 1
-
-local axisXUpdate = CreateAxisToggle(Pages.Joke, "Spin Axis X", "SpinAxisX", rowOrder); rowOrder = rowOrder + 1
-local axisYUpdate = CreateAxisToggle(Pages.Joke, "Spin Axis Y", "SpinAxisY", rowOrder); rowOrder = rowOrder + 1
-local axisZUpdate = CreateAxisToggle(Pages.Joke, "Spin Axis Z", "SpinAxisZ", rowOrder); rowOrder = rowOrder + 1
-
-local sepFrame = Instance.new("Frame", Pages.Joke)
-sepFrame.Size = UDim2.new(1, -12, 0, 1)
-sepFrame.Position = UDim2.new(0, 6, 0, 0)
-sepFrame.BackgroundColor3 = COLORS.Accent
-sepFrame.BackgroundTransparency = 0.5
-sepFrame.LayoutOrder = rowOrder; rowOrder = rowOrder + 1
-
-local joke1, _ = CreateToggle(Pages.Joke, "Spin", "Spin", rowOrder); rowOrder = rowOrder + 1
-local joke2, _ = CreateToggle(Pages.Joke, "BAF (Back and Forth)", "BAF", rowOrder); rowOrder = rowOrder + 1
-local joke3, _ = CreateToggle(Pages.Joke, "Combo (Spin + BAF)", "Combo", rowOrder); rowOrder = rowOrder + 1
-
-local stopJokeBtn = CreateButton(Pages.Joke, "STOP ALL JOKE FEATURES", rowOrder, function()
-    stopAllJokeFeatures()
-    joke1()
-    joke2()
-    joke3()
-    Notify("All joke features stopped!", COLORS.Accent)
-end)
-rowOrder = rowOrder + 1
-
--- ============ DISTURB TAB ============
-rowOrder = 1
-
-local d1, _ = CreateToggle(Pages.Disturb, "Fling", "Fling", rowOrder)
-rowOrder = rowOrder + 1
-
-local flingPowerSlider = CreateSliderRow(Pages.Disturb, "Fling Power", 1000, 50000, 10000, rowOrder, function(value)
-    States.FlingPower = value
-    if States.Fling then
-        Notify("Fling power set to " .. value, COLORS.Accent)
-    end
-end)
-rowOrder = rowOrder + 1
-
-local manualFlingBtn = CreateButton(Pages.Disturb, "Fling Nearby Players", rowOrder, function()
-    flingNearbyPlayers(States.FlingPower)
-end)
-rowOrder = rowOrder + 1
-
--- ============ INITIALIZATION ============
-Notify("Morph Cheat Loaded! Click M to open.", COLORS.Accent)
 
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function() task.wait(0.5) end)
@@ -1773,11 +1252,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     States.FollowTP = false
     States.TapToIdentify = false
     States.ObjectHighlighter = false
-    States.Fling = false
     States.ShowNotifications = oldNotifyState
-    
-    stopAllJokeFeatures()
-    stopFling()
     
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = 16
