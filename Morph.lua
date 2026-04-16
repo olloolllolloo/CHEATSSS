@@ -4,7 +4,15 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
+
+-- Anti-detection
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
+end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MorphCheat_Final_Neon"
@@ -33,7 +41,7 @@ local States = {
     ObjectHighlighter = false, HighlightColorIndex = 1,
     Spin = false, SpinAxisX = false, SpinAxisY = false, SpinAxisZ = false,
     BAF = false, Combo = false,
-    FlingOnTouch = false, FlingPower = 10000
+    Fling = false, FlingPower = 10000
 }
 
 local ESP_COLORS = {Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255)}
@@ -68,7 +76,7 @@ local bafConnection = nil
 local comboConnection = nil
 local bafDirection = 1
 local bafTimer = 0
-local flingLoopConnection = nil  -- для цикла флинга
+local flingConnection = nil
 
 local function CloseAllDropdowns()
     for _, dropdown in pairs(activeDropdowns) do
@@ -107,72 +115,6 @@ local function Notify(text, color)
     notif:Destroy()
 end
 
--- ============ FLING MECHANICS (из первого скрипта) ============
-local function startFlingOnTouch()
-    if flingLoopConnection then flingLoopConnection:Disconnect() end
-    if not States.FlingOnTouch then return end
-    
-    flingLoopConnection = RunService.Heartbeat:Connect(function()
-        if not States.FlingOnTouch then return end
-        if not player.Character then return end
-        
-        local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
-        if not localRoot then return end
-        
-        for _, otherPlayer in pairs(Players:GetPlayers()) do
-            if otherPlayer ~= player and otherPlayer.Character then
-                local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if otherRoot and localRoot then
-                    local distance = (localRoot.Position - otherRoot.Position).Magnitude
-                    if distance < 5 then  -- радиус касания
-                        -- МЕХАНИКА FLING (как в первом скрипте)
-                        local vel = otherRoot.Velocity
-                        otherRoot.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
-                        RunService.RenderStepped:Wait()
-                        if otherRoot and otherRoot.Parent then
-                            otherRoot.Velocity = vel
-                        end
-                        RunService.Stepped:Wait()
-                        if otherRoot and otherRoot.Parent then
-                            local movel = 0.1
-                            otherRoot.Velocity = vel + Vector3.new(0, movel, 0)
-                        end
-                        Notify("FLINGED " .. otherPlayer.Name .. " with power " .. States.FlingPower .. "!", COLORS.Accent)
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function stopFlingOnTouch()
-    if flingLoopConnection then
-        flingLoopConnection:Disconnect()
-        flingLoopConnection = nil
-    end
-end
-
--- Ручной флинг (для кнопки)
-local function manualFling(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return end
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return end
-    
-    local vel = targetRoot.Velocity
-    targetRoot.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
-    RunService.RenderStepped:Wait()
-    if targetRoot and targetRoot.Parent then
-        targetRoot.Velocity = vel
-    end
-    RunService.Stepped:Wait()
-    if targetRoot and targetRoot.Parent then
-        local movel = 0.1
-        targetRoot.Velocity = vel + Vector3.new(0, movel, 0)
-    end
-    Notify("Manually FLINGED " .. targetPlayer.Name .. "!", COLORS.Accent)
-end
-
--- ============ ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ============
 local function setupTapToIdentify()
     local mouse = player:GetMouse()
     mouse.Button1Down:Connect(function()
@@ -598,6 +540,91 @@ local function updateHighlighterColor()
                 highlight.OutlineColor = HIGHLIGHT_COLORS[States.HighlightColorIndex]
             end
         end
+    end
+end
+
+-- NEW FLING SYSTEM
+local function startFling()
+    if flingConnection then flingConnection:Disconnect() end
+    if not States.Fling then return end
+    
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    
+    flingConnection = RunService.RenderStepped:Connect(function()
+        if not States.Fling then return end
+        
+        c = player.Character
+        hrp = c and c:FindFirstChild("HumanoidRootPart")
+        
+        if not (c and c.Parent and hrp and hrp.Parent) then return end
+        
+        vel = hrp.Velocity
+        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
+        RunService.RenderStepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel
+        end
+        
+        RunService.Stepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel + Vector3.new(0, movel, 0)
+            movel = movel * -1
+        end
+    end)
+end
+
+local function stopFling()
+    if flingConnection then
+        flingConnection:Disconnect()
+        flingConnection = nil
+    end
+end
+
+local function flingNearbyPlayers(power)
+    if not player.Character then return end
+    local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return end
+    
+    local flungCount = 0
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local otherHumanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if otherRoot and otherHumanoid then
+                local distance = (localRoot.Position - otherRoot.Position).Magnitude
+                if distance < 15 then
+                    otherHumanoid.PlatformStand = true
+                    
+                    local direction = (otherRoot.Position - localRoot.Position).Unit
+                    direction = Vector3.new(direction.X, 0.8, direction.Z).Unit
+                    
+                    local force = direction * (power * 1.5)
+                    local angularForce = Vector3.new(
+                        math.random(-power * 2, power * 2),
+                        math.random(-power * 2, power * 2),
+                        math.random(-power * 2, power * 2)
+                    )
+                    
+                    otherRoot.AssemblyLinearVelocity = force
+                    otherRoot.AssemblyAngularVelocity = angularForce
+                    
+                    task.wait(0.3)
+                    if otherHumanoid and otherHumanoid.Parent then
+                        otherHumanoid.PlatformStand = false
+                    end
+                    
+                    flungCount = flungCount + 1
+                end
+            end
+        end
+    end
+    
+    if flungCount > 0 then
+        Notify("Flung " .. flungCount .. " player(s) with power " .. power .. "!", COLORS.Accent)
+    else
+        Notify("No players nearby to fling!", COLORS.Accent)
     end
 end
 
@@ -1036,13 +1063,13 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 stopObjectHighlighter()
             end
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
-        elseif key == "FlingOnTouch" then
-            if States.FlingOnTouch then
-                startFlingOnTouch()
-                Notify("FLING on Touch ON - Power: " .. States.FlingPower, COLORS.Accent)
+        elseif key == "Fling" then
+            if States.Fling then
+                startFling()
+                Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
             else
-                stopFlingOnTouch()
-                Notify("FLING on Touch OFF", COLORS.Accent)
+                stopFling()
+                Notify("Fling OFF", COLORS.Accent)
             end
         else
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
@@ -1599,7 +1626,7 @@ local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function
     stopCameraFollow()
     stopObjectHighlighter()
     stopAllJokeFeatures()
-    stopFlingOnTouch()
+    stopFling()
     selectedFollowPlayer = nil
     Notify("All settings reset!", COLORS.Accent)
 end)
@@ -1632,30 +1659,27 @@ local stopJokeBtn = CreateButton(Pages.Joke, "STOP ALL JOKE FEATURES", rowOrder,
 end)
 rowOrder = rowOrder + 1
 
--- ============ DISTURB TAB (ИСПРАВЛЕНО) ============
+-- ============ DISTURB TAB ============
 rowOrder = 1
 
--- Переименовано с FlipOnTouch на FlingOnTouch
-local d1, _ = CreateToggle(Pages.Disturb, "FLING on Touch", "FlingOnTouch", rowOrder)
+local d1, _ = CreateToggle(Pages.Disturb, "Fling", "Fling", rowOrder)
 rowOrder = rowOrder + 1
 
--- Слайдер для мощности флинга (диапазон 1000 - 50000)
-local flingPowerSlider = CreateSliderRow(Pages.Disturb, "FLING Power", 1000, 50000, 10000, rowOrder, function(value)
+local flingPowerSlider = CreateSliderRow(Pages.Disturb, "Fling Power", 1000, 50000, 10000, rowOrder, function(value)
     States.FlingPower = value
-    if States.FlingOnTouch then
-        Notify("FLING power set to " .. value, COLORS.Accent)
+    if States.Fling then
+        Notify("Fling power set to " .. value, COLORS.Accent)
     end
 end)
 rowOrder = rowOrder + 1
 
--- Ручной флинг по игроку
-local manualFlingDropdown = CreateDropdown(Pages.Disturb, "Manual FLING Player", rowOrder, function(selected)
-    manualFling(selected)
+local manualFlingBtn = CreateButton(Pages.Disturb, "Fling Nearby Players", rowOrder, function()
+    flingNearbyPlayers(States.FlingPower)
 end)
 rowOrder = rowOrder + 1
 
 -- ============ INITIALIZATION ============
-Notify("Morph Cheat Loaded! FLING mode added to Disturb tab. Click M to open.", COLORS.Accent)
+Notify("Morph Cheat Loaded! Click M to open.", COLORS.Accent)
 
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function() task.wait(0.5) end)
@@ -1749,11 +1773,11 @@ CloseBtn.MouseButton1Click:Connect(function()
     States.FollowTP = false
     States.TapToIdentify = false
     States.ObjectHighlighter = false
-    States.FlingOnTouch = false
+    States.Fling = false
     States.ShowNotifications = oldNotifyState
     
     stopAllJokeFeatures()
-    stopFlingOnTouch()
+    stopFling()
     
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = 16
