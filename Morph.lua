@@ -7,13 +7,6 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
--- Anti-detection
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-	local detection = Instance.new("Decal")
-	detection.Name = "juisdfj0i32i0eidsuf0iok"
-	detection.Parent = ReplicatedStorage
-end
-
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MorphCheat_Final_Neon"
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
@@ -39,8 +32,10 @@ local States = {
     ESP = false, ESPColorIndex = 1, NameESP = false, NameESPColorIndex = 1, HealthESP = false,
     ShowNotifications = true, TapToIdentify = false, Light = false, FollowTP = false,
     ObjectHighlighter = false, HighlightColorIndex = 1,
+    -- Joke features
     Spin = false, SpinAxisX = false, SpinAxisY = false, SpinAxisZ = false,
     BAF = false, Combo = false,
+    -- Disturb features
     Fling = false, FlingPower = 10000
 }
 
@@ -65,18 +60,33 @@ local camera = workspace.CurrentCamera
 local followedPlayer = nil
 local originalCameraSubject = nil
 local cameraConnection = nil
+
 local selectedFollowPlayer = nil
 local followTpConnection = nil
+local savedPosition = nil
+
 local healthBillboards = {}
 local nameBillboards = {}
+
 local activeDropdowns = {}
 
+-- Joke features variables
 local spinConnection = nil
 local bafConnection = nil
 local comboConnection = nil
 local bafDirection = 1
 local bafTimer = 0
+
+-- Disturb (Fling) variables
 local flingConnection = nil
+local draggingSlider = false
+
+-- Fling detection decal
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local detection = Instance.new("Decal")
+    detection.Name = "juisdfj0i32i0eidsuf0iok"
+    detection.Parent = ReplicatedStorage
+end
 
 local function CloseAllDropdowns()
     for _, dropdown in pairs(activeDropdowns) do
@@ -312,6 +322,7 @@ local function startCameraFollow(targetPlayer)
     end
     
     followedPlayer = targetPlayer
+    
     camera.CameraSubject = targetPlayer.Character.Humanoid
     camera.CameraType = Enum.CameraType.Custom
     
@@ -335,11 +346,14 @@ local function stopCameraFollow()
         cameraConnection:Disconnect()
         cameraConnection = nil
     end
+    
     followedPlayer = nil
+    
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         camera.CameraSubject = player.Character.Humanoid
     end
     camera.CameraType = Enum.CameraType.Custom
+    
     Notify("Camera returned to you!", COLORS.Accent)
 end
 
@@ -439,6 +453,7 @@ local function updateNameESP()
     end
 end
 
+-- ================= OBJECT HIGHLIGHTER SYSTEM =================
 local highlightedObjects = {}
 local objectHighlightConnection = nil
 local highlightSearchTerm = ""
@@ -454,7 +469,10 @@ end
 
 local function findAndHighlightObjects(searchTerm)
     clearObjectHighlights()
-    if not States.ObjectHighlighter or searchTerm == "" then return end
+    
+    if not States.ObjectHighlighter or searchTerm == "" then
+        return
+    end
     
     local searchLower = string.lower(searchTerm)
     local allParts = {}
@@ -470,6 +488,7 @@ local function findAndHighlightObjects(searchTerm)
     end
     
     searchForParts(Workspace)
+    
     local highlightedCount = 0
     
     for _, part in pairs(allParts) do
@@ -484,6 +503,7 @@ local function findAndHighlightObjects(searchTerm)
             highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Parent = part
+            
             highlightedObjects[part] = highlight
             highlightedCount = highlightedCount + 1
         end
@@ -501,7 +521,9 @@ local function startObjectHighlighter(searchTerm)
         objectHighlightConnection:Disconnect()
         objectHighlightConnection = nil
     end
+    
     findAndHighlightObjects(searchTerm)
+    
     objectHighlightConnection = Workspace.DescendantAdded:Connect(function(descendant)
         if States.ObjectHighlighter and highlightSearchTerm ~= "" then
             if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
@@ -543,145 +565,13 @@ local function updateHighlighterColor()
     end
 end
 
--- ПРАВИЛЬНАЯ МЕХАНИКА ФЛИНГА ПРИ КАСАНИИ
-local function startFlingOnTouch()
-    if flingConnection then flingConnection:Disconnect() end
-    if not States.Fling then return end
-    
-    local hrp, c, vel, movel = nil, nil, nil, 0.1
-    
-    flingConnection = RunService.Heartbeat:Connect(function()
-        if not States.Fling then return end
-        
-        -- Ждем пока персонаж загрузится
-        while States.Fling and not (c and c.Parent and hrp and hrp.Parent) do
-            RunService.Heartbeat:Wait()
-            c = player.Character
-            hrp = c and c:FindFirstChild("HumanoidRootPart")
-        end
-        
-        if not States.Fling then return end
-        
-        vel = hrp.Velocity
-        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
-        RunService.RenderStepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel
-        end
-        
-        RunService.Stepped:Wait()
-        
-        if c and c.Parent and hrp and hrp.Parent then
-            hrp.Velocity = vel + Vector3.new(0, movel, 0)
-            movel = movel * -1
-        end
-    end)
-end
-
-local function stopFling()
-    if flingConnection then
-        flingConnection:Disconnect()
-        flingConnection = nil
-    end
-end
-
--- Ручной флинг конкретного игрока
-local function flingSpecificPlayer(targetPlayer, power)
-    if not targetPlayer or not targetPlayer.Character then 
-        Notify("Player not found!", COLORS.Accent)
-        return 
-    end
-    
-    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not targetRoot or not targetHumanoid then 
-        Notify("Cannot fling this player!", COLORS.Accent)
-        return 
-    end
-    
-    local wasPlatformStand = targetHumanoid.PlatformStand
-    targetHumanoid.PlatformStand = true
-    
-    local localRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local direction = Vector3.new(1, 0.8, 1)
-    
-    if localRoot then
-        direction = (targetRoot.Position - localRoot.Position).Unit
-        direction = Vector3.new(direction.X, 0.8, direction.Z).Unit
-    else
-        direction = Vector3.new(math.random(-1, 1), 0.8, math.random(-1, 1)).Unit
-    end
-    
-    local force = direction * (power * 2)
-    local angularForce = Vector3.new(
-        math.random(-power * 3, power * 3),
-        math.random(-power * 3, power * 3),
-        math.random(-power * 3, power * 3)
-    )
-    
-    targetRoot.AssemblyLinearVelocity = force
-    targetRoot.AssemblyAngularVelocity = angularForce
-    
-    if power > 10000 then
-        local attachment = Instance.new("Attachment", targetRoot)
-        local smoke = Instance.new("Smoke", attachment)
-        smoke.Color = Color3.fromRGB(255, 100, 0)
-        smoke.Opacity = 0.8
-        smoke.RiseVelocity = 15
-        smoke.Size = 8
-        task.wait(0.5)
-        smoke:Destroy()
-        attachment:Destroy()
-    end
-    
-    task.wait(0.5)
-    if targetHumanoid and targetHumanoid.Parent then
-        targetHumanoid.PlatformStand = wasPlatformStand
-    end
-    
-    Notify("Flung " .. targetPlayer.Name .. " with power " .. power .. "!", COLORS.Accent)
-end
-
--- Флинг всех игроков поблизости
-local function flingAllNearbyPlayers(power)
-    if not player.Character then 
-        Notify("You need a character first!", COLORS.Accent)
-        return 
-    end
-    
-    local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
-    if not localRoot then 
-        Notify("Cannot find your character!", COLORS.Accent)
-        return 
-    end
-    
-    local flungCount = 0
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= player and otherPlayer.Character then
-            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local otherHumanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-            
-            if otherRoot and otherHumanoid then
-                local distance = (localRoot.Position - otherRoot.Position).Magnitude
-                if distance < 20 then
-                    flingSpecificPlayer(otherPlayer, power)
-                    flungCount = flungCount + 1
-                end
-            end
-        end
-    end
-    
-    if flungCount > 0 then
-        Notify("Flung " .. flungCount .. " player(s) nearby!", COLORS.Accent)
-    else
-        Notify("No players nearby to fling!", COLORS.Accent)
-    end
-end
+-- ================= JOKE FEATURES =================
 
 local function startSpin()
     if spinConnection then spinConnection:Disconnect() end
+    
     if not States.Spin then return end
+    
     if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
         Notify("Select at least one axis for spin!", COLORS.Accent)
         States.Spin = false
@@ -689,12 +579,16 @@ local function startSpin()
     end
     
     spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.Spin or not player.Character then return end
+        if not States.Spin or not player.Character then
+            return
+        end
+        
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
         
         local rotationSpeed = 720
         local rotationDelta = rotationSpeed * deltaTime
+        
         local cframe = rootPart.CFrame
         local angles = Vector3.new(0, 0, 0)
         
@@ -720,13 +614,17 @@ end
 
 local function startBAF()
     if bafConnection then bafConnection:Disconnect() end
+    
     if not States.BAF then return end
     
     bafDirection = 1
     bafTimer = 0
     
     bafConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.BAF or not player.Character then return end
+        if not States.BAF or not player.Character then
+            return
+        end
+        
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
         
@@ -741,8 +639,11 @@ local function startBAF()
         
         local t = bafTimer / cycleTime
         local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
+        
+        local currentPos = rootPart.Position
         local forwardVector = rootPart.CFrame.LookVector
-        local newPos = rootPart.Position + forwardVector * offset
+        local newPos = currentPos + forwardVector * offset
+        
         rootPart.CFrame = CFrame.new(newPos) * rootPart.CFrame.Rotation
     end)
 end
@@ -756,7 +657,9 @@ end
 
 local function startCombo()
     if comboConnection then comboConnection:Disconnect() end
+    
     if not States.Combo then return end
+    
     if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
         Notify("Select at least one axis for combo spin!", COLORS.Accent)
         States.Combo = false
@@ -767,12 +670,16 @@ local function startCombo()
     bafTimer = 0
     
     comboConnection = RunService.RenderStepped:Connect(function(deltaTime)
-        if not States.Combo or not player.Character then return end
+        if not States.Combo or not player.Character then
+            return
+        end
+        
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
         
         local rotationSpeed = 720
         local rotationDelta = rotationSpeed * deltaTime
+        
         local cframe = rootPart.CFrame
         local angles = Vector3.new(0, 0, 0)
         
@@ -796,8 +703,10 @@ local function startCombo()
         
         local t = bafTimer / cycleTime
         local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
+        
         local forwardVector = newCFrame.LookVector
         local newPos = rootPart.Position + forwardVector * offset
+        
         rootPart.CFrame = CFrame.new(newPos) * newCFrame.Rotation
     end)
 end
@@ -817,6 +726,54 @@ local function stopAllJokeFeatures()
     stopBAF()
     stopCombo()
 end
+
+-- ================= DISTURB (FLING) FEATURES =================
+
+local function startFling()
+    if flingConnection then flingConnection:Disconnect() end
+    
+    if not States.Fling then return end
+    
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    
+    flingConnection = RunService.RenderStepped:Connect(function()
+        if not States.Fling then return end
+        
+        c = player.Character
+        hrp = c and c:FindFirstChild("HumanoidRootPart")
+        
+        if not (c and c.Parent and hrp and hrp.Parent) then
+            return
+        end
+        
+        vel = hrp.Velocity
+        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
+        RunService.RenderStepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel
+        end
+        
+        RunService.Stepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel + Vector3.new(0, movel, 0)
+            movel = movel * -1
+        end
+    end)
+    
+    Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
+end
+
+local function stopFling()
+    if flingConnection then
+        flingConnection:Disconnect()
+        flingConnection = nil
+    end
+    Notify("Fling OFF", COLORS.Accent)
+end
+
+-- =============================================================
 
 local function makeDraggable(obj, parent)
     local dragging, dragStart, startPos
@@ -1051,6 +1008,10 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                     States.Combo = false
                     stopCombo()
                 end
+                if States.Fling then
+                    States.Fling = false
+                    stopFling()
+                end
                 startSpin()
                 Notify(text .. " ON - Spinning!", COLORS.Accent)
             else
@@ -1066,6 +1027,10 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 if States.Combo then
                     States.Combo = false
                     stopCombo()
+                end
+                if States.Fling then
+                    States.Fling = false
+                    stopFling()
                 end
                 startBAF()
                 Notify(text .. " ON - Back and Forth!", COLORS.Accent)
@@ -1089,11 +1054,33 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                     States.BAF = false
                     stopBAF()
                 end
+                if States.Fling then
+                    States.Fling = false
+                    stopFling()
+                end
                 startCombo()
                 Notify(text .. " ON - Spinning + Back and Forth!", COLORS.Accent)
             else
                 stopCombo()
                 Notify(text .. " OFF", COLORS.Accent)
+            end
+        elseif key == "Fling" then
+            if States.Fling then
+                if States.Spin then
+                    States.Spin = false
+                    stopSpin()
+                end
+                if States.BAF then
+                    States.BAF = false
+                    stopBAF()
+                end
+                if States.Combo then
+                    States.Combo = false
+                    stopCombo()
+                end
+                startFling()
+            else
+                stopFling()
             end
         elseif key == "AntiAFK" and States.AntiAFK then
             startAntiAFK()
@@ -1114,14 +1101,6 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 stopObjectHighlighter()
             end
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
-        elseif key == "Fling" then
-            if States.Fling then
-                startFlingOnTouch()
-                Notify("Fling ON - Touch players to YEET! Power: " .. States.FlingPower, COLORS.Accent)
-            else
-                stopFling()
-                Notify("Fling OFF", COLORS.Accent)
-            end
         else
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
         end
@@ -1284,96 +1263,6 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
     end
     
     return input
-end
-
-local function CreateSliderRow(parent, labelText, minVal, maxVal, defaultValue, order, callback)
-    local bgColor = GetRowColor(order)
-    
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, 0, 0, 50)
-    frame.BackgroundColor3 = bgColor
-    frame.BackgroundTransparency = 0
-    frame.LayoutOrder = order
-    frame.ZIndex = 1
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Text = labelText
-    label.Size = UDim2.new(1, -8, 0, 14)
-    label.Position = UDim2.new(0, 6, 0, 3)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = COLORS.Text
-    label.Font = "Gotham"
-    label.TextSize = 8
-    label.TextXAlignment = "Left"
-    label.ZIndex = 1
-    
-    local valueLabel = Instance.new("TextLabel", frame)
-    valueLabel.Text = tostring(defaultValue)
-    valueLabel.Size = UDim2.new(0, 40, 0, 14)
-    valueLabel.Position = UDim2.new(1, -46, 0, 3)
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.TextColor3 = COLORS.Accent
-    valueLabel.Font = "GothamBold"
-    valueLabel.TextSize = 8
-    valueLabel.TextXAlignment = "Right"
-    valueLabel.ZIndex = 1
-    
-    local slider = Instance.new("Frame", frame)
-    slider.Size = UDim2.new(1, -12, 0, 4)
-    slider.Position = UDim2.new(0, 6, 0, 24)
-    slider.BackgroundColor3 = COLORS.Inactive
-    slider.ZIndex = 1
-    Instance.new("UICorner", slider).CornerRadius = UDim.new(1, 0)
-    
-    local fill = Instance.new("Frame", slider)
-    fill.Size = UDim2.new((defaultValue - minVal) / (maxVal - minVal), 0, 1, 0)
-    fill.BackgroundColor3 = COLORS.Accent
-    fill.ZIndex = 1
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    
-    local knob = Instance.new("TextButton", slider)
-    knob.Size = UDim2.new(0, 12, 0, 12)
-    knob.Position = UDim2.new((defaultValue - minVal) / (maxVal - minVal), -6, 0.5, -6)
-    knob.BackgroundColor3 = COLORS.Accent
-    knob.Text = ""
-    knob.ZIndex = 2
-    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
-    
-    local dragging = false
-    
-    local function updateSlider(value)
-        local clamped = math.clamp(value, minVal, maxVal)
-        local percent = (clamped - minVal) / (maxVal - minVal)
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        knob.Position = UDim2.new(percent, -6, 0.5, -6)
-        valueLabel.Text = tostring(math.floor(clamped))
-        States.FlingPower = clamped
-        if callback then callback(clamped) end
-    end
-    
-    knob.MouseButton1Down:Connect(function()
-        dragging = true
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = input.Position
-            local sliderPos = slider.AbsolutePosition
-            local sliderWidth = slider.AbsoluteSize.X
-            local percent = math.clamp((mousePos.X - sliderPos.X) / sliderWidth, 0, 1)
-            local value = minVal + (maxVal - minVal) * percent
-            updateSlider(value)
-        end
-    end)
-    
-    return updateSlider
 end
 
 local function CreateDropdown(parent, labelText, order, onSelect)
@@ -1658,6 +1547,7 @@ local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function
         end
     end
     States.ShowNotifications = true
+    States.FlingPower = 10000
     v1(); v2(); v3(); v4(); t1(); t2(); t3()
     u1(); u2(); u3(); u4(); u5()
     if speedInput then speedInput.Text = "16" end
@@ -1710,34 +1600,179 @@ local stopJokeBtn = CreateButton(Pages.Joke, "STOP ALL JOKE FEATURES", rowOrder,
 end)
 rowOrder = rowOrder + 1
 
--- ============ DISTURB TAB ============
+-- ============ DISTURB (FLING) TAB ============
 rowOrder = 1
 
-local d1, _ = CreateToggle(Pages.Disturb, "Fling (Touch to YEET)", "Fling", rowOrder)
+-- Fling Toggle
+local flingToggle, _ = CreateToggle(Pages.Disturb, "Fling", "Fling", rowOrder)
 rowOrder = rowOrder + 1
 
-local flingPowerSlider = CreateSliderRow(Pages.Disturb, "Fling Power", 1000, 50000, 10000, rowOrder, function(value)
+-- Fling Power Label (styled like other labels)
+local flingPowerFrame = Instance.new("Frame", Pages.Disturb)
+flingPowerFrame.Size = UDim2.new(1, 0, 0, 50)
+flingPowerFrame.BackgroundColor3 = GetRowColor(rowOrder)
+flingPowerFrame.BackgroundTransparency = 0
+flingPowerFrame.LayoutOrder = rowOrder
+flingPowerFrame.ZIndex = 1
+Instance.new("UICorner", flingPowerFrame).CornerRadius = UDim.new(0, 3)
+
+local flingPowerLabel = Instance.new("TextLabel", flingPowerFrame)
+flingPowerLabel.Text = "Fling Power: 10000"
+flingPowerLabel.Size = UDim2.new(1, -12, 0, 16)
+flingPowerLabel.Position = UDim2.new(0, 6, 0, 4)
+flingPowerLabel.BackgroundTransparency = 1
+flingPowerLabel.TextColor3 = COLORS.Text
+flingPowerLabel.Font = "Gotham"
+flingPowerLabel.TextSize = 9
+flingPowerLabel.TextXAlignment = "Left"
+flingPowerLabel.ZIndex = 1
+
+-- Fling Power Bar (Slider Background)
+local flingPowerBar = Instance.new("Frame", flingPowerFrame)
+flingPowerBar.Size = UDim2.new(1, -12, 0, 12)
+flingPowerBar.Position = UDim2.new(0, 6, 0, 24)
+flingPowerBar.BackgroundColor3 = COLORS.SideBG
+flingPowerBar.ZIndex = 1
+Instance.new("UICorner", flingPowerBar).CornerRadius = UDim.new(0, 4)
+
+-- Fling Power Slider (the draggable part)
+local flingPowerSlider = Instance.new("TextButton", flingPowerBar)
+flingPowerSlider.Size = UDim2.new(0.2, 0, 1, 0) -- 10000 / 50000 = 0.2
+flingPowerSlider.Position = UDim2.new(0.2, 0, 0, 0)
+flingPowerSlider.BackgroundColor3 = COLORS.Accent
+flingPowerSlider.Text = ""
+flingPowerSlider.ZIndex = 1
+Instance.new("UICorner", flingPowerSlider).CornerRadius = UDim.new(0, 4)
+
+-- Update Fling Power function
+local function updateFlingPower(value)
     States.FlingPower = value
+    flingPowerLabel.Text = "Fling Power: " .. value
+end
+
+-- Slider dragging logic
+flingPowerSlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingSlider = true
+    end
+end)
+
+flingPowerSlider.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingSlider = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local mousePos = input.Position.X
+        local barPos = flingPowerBar.AbsolutePosition.X
+        local barSize = flingPowerBar.AbsoluteSize.X
+        local newPos = math.clamp((mousePos - barPos) / barSize, 0, 1)
+        
+        flingPowerSlider.Position = UDim2.new(newPos, 0, 0, 0)
+        local power = math.floor(newPos * 50000) + 5000
+        updateFlingPower(power)
+        
+        if States.Fling then
+            Notify("Fling Power: " .. power, COLORS.Accent)
+        end
+    end
+end)
+
+rowOrder = rowOrder + 1
+
+-- Quick Power Preset Buttons
+local presetFrame = Instance.new("Frame", Pages.Disturb)
+presetFrame.Size = UDim2.new(1, 0, 0, 30)
+presetFrame.BackgroundColor3 = GetRowColor(rowOrder)
+presetFrame.BackgroundTransparency = 0
+presetFrame.LayoutOrder = rowOrder
+presetFrame.ZIndex = 1
+Instance.new("UICorner", presetFrame).CornerRadius = UDim.new(0, 3)
+
+local presetLabel = Instance.new("TextLabel", presetFrame)
+presetLabel.Text = "Quick Power:"
+presetLabel.Size = UDim2.new(1, -12, 0, 12)
+presetLabel.Position = UDim2.new(0, 6, 0, 2)
+presetLabel.BackgroundTransparency = 1
+presetLabel.TextColor3 = COLORS.Text
+presetLabel.Font = "Gotham"
+presetLabel.TextSize = 8
+presetLabel.TextXAlignment = "Left"
+presetLabel.ZIndex = 1
+
+local btnLow = Instance.new("TextButton", presetFrame)
+btnLow.Size = UDim2.new(0.3, -4, 0, 12)
+btnLow.Position = UDim2.new(0, 6, 0, 16)
+btnLow.BackgroundColor3 = COLORS.SideBG
+btnLow.Text = "Low (5k)"
+btnLow.TextColor3 = COLORS.Text
+btnLow.Font = "Gotham"
+btnLow.TextSize = 7
+btnLow.ZIndex = 1
+Instance.new("UICorner", btnLow).CornerRadius = UDim.new(0, 3)
+
+local btnMid = Instance.new("TextButton", presetFrame)
+btnMid.Size = UDim2.new(0.3, -4, 0, 12)
+btnMid.Position = UDim2.new(0.35, 2, 0, 16)
+btnMid.BackgroundColor3 = COLORS.SideBG
+btnMid.Text = "Mid (30k)"
+btnMid.TextColor3 = COLORS.Text
+btnMid.Font = "Gotham"
+btnMid.TextSize = 7
+btnMid.ZIndex = 1
+Instance.new("UICorner", btnMid).CornerRadius = UDim.new(0, 3)
+
+local btnHigh = Instance.new("TextButton", presetFrame)
+btnHigh.Size = UDim2.new(0.3, -4, 0, 12)
+btnHigh.Position = UDim2.new(0.7, -2, 0, 16)
+btnHigh.BackgroundColor3 = COLORS.SideBG
+btnHigh.Text = "High (55k)"
+btnHigh.TextColor3 = COLORS.Text
+btnHigh.Font = "Gotham"
+btnHigh.TextSize = 7
+btnHigh.ZIndex = 1
+Instance.new("UICorner", btnHigh).CornerRadius = UDim.new(0, 3)
+
+btnLow.MouseButton1Click:Connect(function()
+    local power = 5000
+    local pos = (power - 5000) / 50000
+    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
+    updateFlingPower(power)
+    Notify("Fling Power: " .. power, COLORS.Accent)
+end)
+
+btnMid.MouseButton1Click:Connect(function()
+    local power = 30000
+    local pos = (power - 5000) / 50000
+    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
+    updateFlingPower(power)
+    Notify("Fling Power: " .. power, COLORS.Accent)
+end)
+
+btnHigh.MouseButton1Click:Connect(function()
+    local power = 55000
+    local pos = (power - 5000) / 50000
+    flingPowerSlider.Position = UDim2.new(pos, 0, 0, 0)
+    updateFlingPower(power)
+    Notify("Fling Power: " .. power, COLORS.Accent)
+end)
+
+rowOrder = rowOrder + 1
+
+-- Stop Fling button
+local stopFlingBtn = CreateButton(Pages.Disturb, "STOP FLING", rowOrder, function()
     if States.Fling then
-        Notify("Fling power: " .. value, COLORS.Accent)
+        States.Fling = false
+        stopFling()
+        flingToggle()
     end
+    Notify("Fling stopped!", COLORS.Accent)
 end)
 rowOrder = rowOrder + 1
 
-local flingPlayerDropdown = CreateDropdown(Pages.Disturb, "Select Player to Fling", rowOrder, function(selected)
-    if selected then
-        flingSpecificPlayer(selected, States.FlingPower)
-    end
-end)
-rowOrder = rowOrder + 1
-
-local flingAllBtn = CreateButton(Pages.Disturb, "FLING ALL NEARBY", rowOrder, function()
-    flingAllNearbyPlayers(States.FlingPower)
-end)
-rowOrder = rowOrder + 1
-
--- ============ INITIALIZATION ============
-Notify("Morph Cheat Loaded! Click M to open.", COLORS.Accent)
+-- ============ INITIALIZATION & RUN LOOP ============
 
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function() task.wait(0.5) end)
@@ -1831,8 +1866,8 @@ CloseBtn.MouseButton1Click:Connect(function()
     States.FollowTP = false
     States.TapToIdentify = false
     States.ObjectHighlighter = false
-    States.Fling = false
     States.ShowNotifications = oldNotifyState
+    States.Fling = false
     
     stopAllJokeFeatures()
     stopFling()
