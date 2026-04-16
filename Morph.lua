@@ -813,6 +813,9 @@ local function startFly()
     
     local flySpeed = 50
     
+    -- Получаем MoveDirection для мобильных устройств
+    local moveDirection = Vector3.new(0, 0, 0)
+    
     -- Основной цикл полёта
     flyConnection = RunService.RenderStepped:Connect(function()
         if not States.Fly or not player.Character then
@@ -824,44 +827,39 @@ local function startFly()
             return
         end
         
-        -- Получаем направление камеры
         local camera = workspace.CurrentCamera
-        local moveDirection = Vector3.new(0, 0, 0)
+        local moveVec = Vector3.new(0, 0, 0)
         
-        -- WASD управление
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection = moveDirection + Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        -- ========== ПОДДЕРЖКА МОБИЛЬНЫХ УСТРОЙСТВ ==========
+        
+        -- Способ 1: Используем MoveDirection от Humanoid (работает с джойстиком на мобилке)
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid and humanoid.MoveDirection.Magnitude > 0 then
+            -- Джойстик на мобилке или клавиши WASD на ПК
+            local moveDir = humanoid.MoveDirection
+            -- Преобразуем направление относительно камеры
+            local cameraCF = camera.CFrame
+            local forward = cameraCF.LookVector * moveDir.Z
+            local right = cameraCF.RightVector * moveDir.X
+            moveVec = (forward + right).Unit * flySpeed
         end
         
-        -- Нормализуем и применяем скорость
-        if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit
-        end
+        -- Способ 2: Кнопки на экране (если нужны дополнительные)
+        -- Подъём/спуск через специальные кнопки UI (можно добавить позже)
         
-        flyBodyVelocity.Velocity = moveDirection * flySpeed
+        -- Для мобильных: кнопки громкости для подъёма/спуска (опционально)
+        -- Это не обязательно, просто доп. возможность
         
-        -- Если нет нажатых клавиш, зависаем на месте
-        if moveDirection.Magnitude == 0 then
+        -- Применяем скорость
+        if moveVec.Magnitude > 0 then
+            flyBodyVelocity.Velocity = moveVec
+        else
+            -- Если джойстик не тронут, зависаем на месте
             flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
         end
     end)
     
-    Notify("Fly ON - Use WASD + Space/Control", COLORS.Accent)
+    Notify("Fly ON - Use joystick to move!", COLORS.Accent)
 end
 
 local function stopFly()
