@@ -1,166 +1,18 @@
-local ScreenGui = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local ToggleButton = Instance.new("TextButton")
-local TextLabel = Instance.new("TextLabel")
-local HideButton = Instance.new("TextButton")
-local PowerLabel = Instance.new("TextLabel")
-local PowerSlider = Instance.new("TextButton")
-local PowerBar = Instance.new("Frame")
-local UICorner = Instance.new("UICorner")
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.ResetOnSpawn = false
-
-Frame.Parent = ScreenGui
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Frame.Position = UDim2.new(0.35, 0, 0.4, 0)
-Frame.Size = UDim2.new(0, 220, 0, 150)
-Frame.Active = true
-Frame.Draggable = true
-UICorner.Parent = Frame
-
-TextLabel.Parent = Frame
-TextLabel.BackgroundTransparency = 1
-TextLabel.Size = UDim2.new(1, 0, 0.2, 0)
-TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "Fuck Fling"
-TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextLabel.TextSize = 22
-
-ToggleButton.Parent = Frame
-ToggleButton.Position = UDim2.new(0.1, 0, 0.3, 0)
-ToggleButton.Size = UDim2.new(0.8, 0, 0.2, 0)
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Text = "OFF"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-ToggleButton.TextSize = 24
-UICorner:Clone().Parent = ToggleButton
-
-PowerLabel.Parent = Frame
-PowerLabel.BackgroundTransparency = 1
-PowerLabel.Position = UDim2.new(0.1, 0, 0.55, 0)
-PowerLabel.Size = UDim2.new(0.8, 0, 0.15, 0)
-PowerLabel.Font = Enum.Font.SourceSansBold
-PowerLabel.Text = "Fling Power: 10000"
-PowerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-PowerLabel.TextSize = 18
-
-PowerBar.Parent = Frame
-PowerBar.Position = UDim2.new(0.1, 0, 0.7, 0)
-PowerBar.Size = UDim2.new(0.8, 0, 0.1, 0)
-PowerBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-UICorner:Clone().Parent = PowerBar
-PowerSlider.Parent = PowerBar
-PowerSlider.Size = UDim2.new(0.1, 0, 1, 0)
-PowerSlider.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-UICorner:Clone().Parent = PowerSlider
-HideButton.Parent = ScreenGui
-HideButton.Position = UDim2.new(0.05, 0, 0.9, 0)
-HideButton.Size = UDim2.new(0, 50, 0, 30)
-HideButton.Font = Enum.Font.SourceSansBold
-HideButton.Text = "x"
-HideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-HideButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-UICorner:Clone().Parent = HideButton
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-
-local hiddenfling = false
-local flingPower = 10000
-local lp = Players.LocalPlayer
-local dragging = false
-
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-	local detection = Instance.new("Decal")
-	detection.Name = "juisdfj0i32i0eidsuf0iok"
-	detection.Parent = ReplicatedStorage
-end
-
-local function fling()
-	local hrp, c, vel, movel = nil, nil, nil, 0.1
-	
-	while true do
-		RunService.Heartbeat:Wait()
-		if hiddenfling then
-			while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
-				RunService.Heartbeat:Wait()
-				c = lp.Character
-				hrp = c and c:FindFirstChild("HumanoidRootPart")
-			end
-
-			if hiddenfling then
-				vel = hrp.Velocity
-				hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
-				RunService.RenderStepped:Wait()
-				if c and c.Parent and hrp and hrp.Parent then
-					hrp.Velocity = vel
-				end
-				RunService.Stepped:Wait()
-				if c and c.Parent and hrp and hrp.Parent then
-					hrp.Velocity = vel + Vector3.new(0, movel, 0)
-					movel = movel * -1
-				end
-			end
-		end
-	end
-end
-
-ToggleButton.MouseButton1Click:Connect(function()
-	hiddenfling = not hiddenfling
-	if hiddenfling then
-		ToggleButton.Text = "ON"
-		ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-	else
-		ToggleButton.Text = "OFF"
-		ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-	end
-end)
-
-HideButton.MouseButton1Click:Connect(function()
-	Frame.Visible = not Frame.Visible
-	if Frame.Visible then
-		HideButton.Text = "x"
-	else
-		HideButton.Text = "x"
-	end
-end)
-
-PowerSlider.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-	end
-end)
-
-PowerSlider.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		local mousePos = input.Position.X
-		local barPos = PowerBar.AbsolutePosition.X
-		local barSize = PowerBar.AbsoluteSize.X
-		local newPos = math.clamp((mousePos - barPos) / barSize, 0, 1)
-		
-		PowerSlider.Position = UDim2.new(newPos, 0, 0, 0)
-		flingPower = math.floor(newPos * 50000) + 5000
-		PowerLabel.Text = "Fling Power: " .. flingPower
-	end
-end)
-
-fling() вот возьми механику отсюда и добавь во вкладку distrub там щас не работает flip. переименуй его во fling и оставь интерфейс таким же во вкладке но сделай чтоб работаоо. жду рлный код
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
+
+-- Anti-detection
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
+end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MorphCheat_Final_Neon"
@@ -189,7 +41,7 @@ local States = {
     ObjectHighlighter = false, HighlightColorIndex = 1,
     Spin = false, SpinAxisX = false, SpinAxisY = false, SpinAxisZ = false,
     BAF = false, Combo = false,
-    FlipOnTouch = false, FlipPower = 50
+    Fling = false, FlingPower = 10000
 }
 
 local ESP_COLORS = {Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255)}
@@ -224,7 +76,7 @@ local bafConnection = nil
 local comboConnection = nil
 local bafDirection = 1
 local bafTimer = 0
-local flipConnection = nil
+local flingConnection = nil
 
 local function CloseAllDropdowns()
     for _, dropdown in pairs(activeDropdowns) do
@@ -691,42 +543,93 @@ local function updateHighlighterColor()
     end
 end
 
-local function flipPlayer(targetPlayer, power)
-    if not targetPlayer or not targetPlayer.Character then return end
+-- ПРАВИЛЬНАЯ МЕХАНИКА ФЛИНГА ПРИ КАСАНИИ
+local function startFlingOnTouch()
+    if flingConnection then flingConnection:Disconnect() end
+    if not States.Fling then return end
+    
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    
+    flingConnection = RunService.Heartbeat:Connect(function()
+        if not States.Fling then return end
+        
+        -- Ждем пока персонаж загрузится
+        while States.Fling and not (c and c.Parent and hrp and hrp.Parent) do
+            RunService.Heartbeat:Wait()
+            c = player.Character
+            hrp = c and c:FindFirstChild("HumanoidRootPart")
+        end
+        
+        if not States.Fling then return end
+        
+        vel = hrp.Velocity
+        hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
+        RunService.RenderStepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel
+        end
+        
+        RunService.Stepped:Wait()
+        
+        if c and c.Parent and hrp and hrp.Parent then
+            hrp.Velocity = vel + Vector3.new(0, movel, 0)
+            movel = movel * -1
+        end
+    end)
+end
+
+local function stopFling()
+    if flingConnection then
+        flingConnection:Disconnect()
+        flingConnection = nil
+    end
+end
+
+-- Ручной флинг конкретного игрока
+local function flingSpecificPlayer(targetPlayer, power)
+    if not targetPlayer or not targetPlayer.Character then 
+        Notify("Player not found!", COLORS.Accent)
+        return 
+    end
     
     local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
     local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not targetRoot or not targetHumanoid then return end
+    if not targetRoot or not targetHumanoid then 
+        Notify("Cannot fling this player!", COLORS.Accent)
+        return 
+    end
     
+    local wasPlatformStand = targetHumanoid.PlatformStand
     targetHumanoid.PlatformStand = true
     
     local localRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local direction = Vector3.new(1, 0.5, 1)
+    local direction = Vector3.new(1, 0.8, 1)
     
     if localRoot then
         direction = (targetRoot.Position - localRoot.Position).Unit
-        direction = Vector3.new(direction.X, 0.5, direction.Z).Unit
+        direction = Vector3.new(direction.X, 0.8, direction.Z).Unit
     else
-        direction = Vector3.new(math.random(-1, 1), 0.5, math.random(-1, 1)).Unit
+        direction = Vector3.new(math.random(-1, 1), 0.8, math.random(-1, 1)).Unit
     end
     
-    local force = direction * (power * 1.5)
+    local force = direction * (power * 2)
     local angularForce = Vector3.new(
-        math.random(-power * 2, power * 2),
-        math.random(-power * 2, power * 2),
-        math.random(-power * 2, power * 2)
+        math.random(-power * 3, power * 3),
+        math.random(-power * 3, power * 3),
+        math.random(-power * 3, power * 3)
     )
     
     targetRoot.AssemblyLinearVelocity = force
     targetRoot.AssemblyAngularVelocity = angularForce
     
-    if power > 50 then
+    if power > 10000 then
         local attachment = Instance.new("Attachment", targetRoot)
         local smoke = Instance.new("Smoke", attachment)
         smoke.Color = Color3.fromRGB(255, 100, 0)
         smoke.Opacity = 0.8
-        smoke.RiseVelocity = 10
-        smoke.Size = 5
+        smoke.RiseVelocity = 15
+        smoke.Size = 8
         task.wait(0.5)
         smoke:Destroy()
         attachment:Destroy()
@@ -734,41 +637,45 @@ local function flipPlayer(targetPlayer, power)
     
     task.wait(0.5)
     if targetHumanoid and targetHumanoid.Parent then
-        targetHumanoid.PlatformStand = false
+        targetHumanoid.PlatformStand = wasPlatformStand
     end
     
-    Notify("Flipped " .. targetPlayer.Name .. " with power " .. power .. "!", COLORS.Accent)
+    Notify("Flung " .. targetPlayer.Name .. " with power " .. power .. "!", COLORS.Accent)
 end
 
-local function startFlipOnTouch()
-    if flipConnection then flipConnection:Disconnect() end
-    if not States.FlipOnTouch then return end
+-- Флинг всех игроков поблизости
+local function flingAllNearbyPlayers(power)
+    if not player.Character then 
+        Notify("You need a character first!", COLORS.Accent)
+        return 
+    end
     
-    flipConnection = RunService.Stepped:Connect(function()
-        if not States.FlipOnTouch then return end
-        if not player.Character then return end
-        
-        local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
-        if not localRoot then return end
-        
-        for _, otherPlayer in pairs(Players:GetPlayers()) do
-            if otherPlayer ~= player and otherPlayer.Character then
-                local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if otherRoot and localRoot then
-                    local distance = (localRoot.Position - otherRoot.Position).Magnitude
-                    if distance < 5 then
-                        flipPlayer(otherPlayer, States.FlipPower)
-                    end
+    local localRoot = player.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then 
+        Notify("Cannot find your character!", COLORS.Accent)
+        return 
+    end
+    
+    local flungCount = 0
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local otherHumanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+            
+            if otherRoot and otherHumanoid then
+                local distance = (localRoot.Position - otherRoot.Position).Magnitude
+                if distance < 20 then
+                    flingSpecificPlayer(otherPlayer, power)
+                    flungCount = flungCount + 1
                 end
             end
         end
-    end)
-end
-
-local function stopFlipOnTouch()
-    if flipConnection then
-        flipConnection:Disconnect()
-        flipConnection = nil
+    end
+    
+    if flungCount > 0 then
+        Notify("Flung " .. flungCount .. " player(s) nearby!", COLORS.Accent)
+    else
+        Notify("No players nearby to fling!", COLORS.Accent)
     end
 end
 
@@ -1207,13 +1114,13 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 stopObjectHighlighter()
             end
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
-        elseif key == "FlipOnTouch" then
-            if States.FlipOnTouch then
-                startFlipOnTouch()
-                Notify("Flip on Touch ON - Power: " .. States.FlipPower, COLORS.Accent)
+        elseif key == "Fling" then
+            if States.Fling then
+                startFlingOnTouch()
+                Notify("Fling ON - Touch players to YEET! Power: " .. States.FlingPower, COLORS.Accent)
             else
-                stopFlipOnTouch()
-                Notify("Flip on Touch OFF", COLORS.Accent)
+                stopFling()
+                Notify("Fling OFF", COLORS.Accent)
             end
         else
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
@@ -1441,7 +1348,7 @@ local function CreateSliderRow(parent, labelText, minVal, maxVal, defaultValue, 
         fill.Size = UDim2.new(percent, 0, 1, 0)
         knob.Position = UDim2.new(percent, -6, 0.5, -6)
         valueLabel.Text = tostring(math.floor(clamped))
-        States.FlipPower = clamped
+        States.FlingPower = clamped
         if callback then callback(clamped) end
     end
     
@@ -1746,7 +1653,7 @@ rowOrder = 1
 local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function()
     for k, v in pairs(States) do
         if k ~= "ESPColorIndex" and k ~= "NameESPColorIndex" and k ~= "HighlightColorIndex" and
-           k ~= "SpinAxisX" and k ~= "SpinAxisY" and k ~= "SpinAxisZ" and k ~= "FlipPower" then
+           k ~= "SpinAxisX" and k ~= "SpinAxisY" and k ~= "SpinAxisZ" and k ~= "FlingPower" then
             States[k] = false
         end
     end
@@ -1770,7 +1677,7 @@ local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function
     stopCameraFollow()
     stopObjectHighlighter()
     stopAllJokeFeatures()
-    stopFlipOnTouch()
+    stopFling()
     selectedFollowPlayer = nil
     Notify("All settings reset!", COLORS.Accent)
 end)
@@ -1806,19 +1713,26 @@ rowOrder = rowOrder + 1
 -- ============ DISTURB TAB ============
 rowOrder = 1
 
-local d1, _ = CreateToggle(Pages.Disturb, "Flip on Touch", "FlipOnTouch", rowOrder)
+local d1, _ = CreateToggle(Pages.Disturb, "Fling (Touch to YEET)", "Fling", rowOrder)
 rowOrder = rowOrder + 1
 
-local flipPowerSlider = CreateSliderRow(Pages.Disturb, "Flip Power", 1, 100, 50, rowOrder, function(value)
-    States.FlipPower = value
-    if States.FlipOnTouch then
-        Notify("Flip power set to " .. value, COLORS.Accent)
+local flingPowerSlider = CreateSliderRow(Pages.Disturb, "Fling Power", 1000, 50000, 10000, rowOrder, function(value)
+    States.FlingPower = value
+    if States.Fling then
+        Notify("Fling power: " .. value, COLORS.Accent)
     end
 end)
 rowOrder = rowOrder + 1
 
-local manualFlipDropdown = CreateDropdown(Pages.Disturb, "Manual Flip Player", rowOrder, function(selected)
-    flipPlayer(selected, States.FlipPower)
+local flingPlayerDropdown = CreateDropdown(Pages.Disturb, "Select Player to Fling", rowOrder, function(selected)
+    if selected then
+        flingSpecificPlayer(selected, States.FlingPower)
+    end
+end)
+rowOrder = rowOrder + 1
+
+local flingAllBtn = CreateButton(Pages.Disturb, "FLING ALL NEARBY", rowOrder, function()
+    flingAllNearbyPlayers(States.FlingPower)
 end)
 rowOrder = rowOrder + 1
 
@@ -1917,11 +1831,11 @@ CloseBtn.MouseButton1Click:Connect(function()
     States.FollowTP = false
     States.TapToIdentify = false
     States.ObjectHighlighter = false
-    States.FlipOnTouch = false
+    States.Fling = false
     States.ShowNotifications = oldNotifyState
     
     stopAllJokeFeatures()
-    stopFlipOnTouch()
+    stopFling()
     
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = 16
