@@ -794,7 +794,6 @@ local function startFly()
     
     if not humanoid or not hrp then return end
     
-    -- Отключаем гравитацию
     humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
@@ -804,69 +803,37 @@ local function startFly()
     humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
     humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
     humanoid.PlatformStand = true
-    
-    -- Включаем AutoRotate чтобы персонаж смотрел в сторону движения
     humanoid.AutoRotate = true
-    
-    -- Создаём BodyVelocity для полёта
-    flyBodyVelocity = Instance.new("BodyVelocity")
-    flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    flyBodyVelocity.Parent = hrp
     
     local flySpeed = 50
     
-    -- Основной цикл полёта
-    flyConnection = RunService.RenderStepped:Connect(function()
-        if not States.Fly or not player.Character then
-            return
-        end
+    flyConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        if not States.Fly or not player.Character then return end
         
         local currentHrp = player.Character:FindFirstChild("HumanoidRootPart")
         local currentHumanoid = player.Character:FindFirstChild("Humanoid")
-        if not currentHrp or not flyBodyVelocity or flyBodyVelocity.Parent ~= currentHrp then
-            return
-        end
+        if not currentHrp or not currentHumanoid then return end
         
         local camera = workspace.CurrentCamera
-        local cameraCF = camera.CFrame
-        local moveVec = Vector3.new(0, 0, 0)
+        local moveDir = currentHumanoid.MoveDirection
         
-        -- Получаем направление от джойстика (MoveDirection)
-        if currentHumanoid and currentHumanoid.MoveDirection.Magnitude > 0 then
-            local moveDir = currentHumanoid.MoveDirection
+        if moveDir.Magnitude > 0 then
+            -- Движение относительно камеры
+            local moveVector = camera.CFrame:VectorToWorldSpace(moveDir)
+            local newPos = currentHrp.Position + moveVector * flySpeed * deltaTime
             
-            -- Исправляем направления:
-            -- moveDir.X = влево/вправо (A/D или джойстик)
-            -- moveDir.Z = вперёд/назад (W/S или джойстик)
-            -- moveDir.Y = подъём/спуск (Space/Control или кнопки на мобилке)
-            
-            -- Правильное преобразование относительно камеры
-            local forward = cameraCF.LookVector * moveDir.Z      -- Вперёд/назад
-            local right = cameraCF.RightVector * moveDir.X       -- Влево/вправо
-            local up = Vector3.new(0, moveDir.Y, 0)              -- Вверх/вниз (если есть)
-            
-            moveVec = (forward + right + up) * flySpeed
-            
-            -- Поворачиваем персонажа в сторону движения (только горизонтально)
-            if moveVec.Magnitude > 0.1 and (math.abs(moveDir.X) > 0.1 or math.abs(moveDir.Z) > 0.1) then
-                local directionOnGround = Vector3.new(moveVec.X, 0, moveVec.Z).Unit
-                if directionOnGround.Magnitude > 0 then
-                    local targetAngle = math.atan2(directionOnGround.X, directionOnGround.Z)
-                    currentHrp.CFrame = CFrame.new(currentHrp.Position) * CFrame.Angles(0, targetAngle, 0)
-                end
+            -- Поворачиваем персонажа
+            if moveDir.Z ~= 0 or moveDir.X ~= 0 then
+                local lookDir = Vector3.new(moveVector.X, 0, moveVector.Z).Unit
+                currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + lookDir)
             end
-        end
-        
-        -- Применяем скорость
-        if moveVec.Magnitude > 0 then
-            flyBodyVelocity.Velocity = moveVec
-        else
-            flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            
+            -- Перемещаем
+            currentHrp.CFrame = CFrame.new(newPos) * currentHrp.CFrame.Rotation
         end
     end)
     
-    Notify("Fly ON - Move with joystick!", COLORS.Accent)
+    Notify("Fly ON - Joystick moves relative to camera!", COLORS.Accent)
 end
 
 local function stopFly()
