@@ -1649,6 +1649,88 @@ rowOrder = rowOrder + 1
 
 -- ============ INITIALIZATION & RUN LOOP ============
 
+-- ============ INITIALIZATION & RUN LOOP ============
+
+-- Функция для применения всех активных фич
+local function reapplyAllActiveFeatures()
+    if not player.Character then return end
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not hrp then return end
+    
+    -- Применяем скорость (если изменена)
+    if speedInput and speedInput.Text and speedInput.Text ~= "16" then
+        local speedVal = tonumber(speedInput.Text) or 16
+        humanoid.WalkSpeed = speedVal
+    end
+    
+    -- Применяем NoClip
+    if States.NoClip then
+        task.wait(0.1)
+        for _, v in pairs(character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+    
+    -- Перезапускаем подсветку объектов
+    if States.ObjectHighlighter and highlightSearchTerm ~= "" then
+        stopObjectHighlighter()
+        task.wait(0.1)
+        startObjectHighlighter(highlightSearchTerm)
+    end
+    
+    -- Перезапускаем Light
+    if States.Light then
+        setLighting(true)
+    end
+    
+    -- Перезапускаем шутки
+    if States.Spin then
+        stopSpin()
+        task.wait(0.1)
+        startSpin()
+    end
+    
+    if States.BAF then
+        stopBAF()
+        task.wait(0.1)
+        startBAF()
+    end
+    
+    if States.Combo then
+        stopCombo()
+        task.wait(0.1)
+        startCombo()
+    end
+    
+    -- Перезапускаем Fling
+    if States.Fling then
+        States.Fling = false
+        stopFling()
+        task.wait(0.1)
+        States.Fling = true
+        startFling()
+    end
+end
+
+-- Отслеживаем респаун
+player.CharacterAdded:Connect(function(character)
+    Notify("Respawned! Reapplying features...", COLORS.Accent)
+    task.wait(0.5)
+    reapplyAllActiveFeatures()
+end)
+
+-- Первое применение (если персонаж уже есть)
+if player.Character then
+    task.wait(0.5)
+    reapplyAllActiveFeatures()
+end
+
+-- Остальной код без изменений
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function() task.wait(0.5) end)
 end)
@@ -1665,7 +1747,7 @@ RunService.RenderStepped:Connect(function()
             if v:IsA("BasePart") then v.CanCollide = false end
         end
     end
-    
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
             local highlight = p.Character:FindFirstChild("MorphESP")
@@ -1683,7 +1765,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-    
+
     updateNameESP()
     updateHealthESP()
 end)
@@ -1698,6 +1780,7 @@ setupTeleportClick()
 setupTapToIdentify()
 if States.AntiAFK then startAntiAFK() end
 
+-- GUI логика (без изменений)
 local function toggleGui(open)
     if open then
         MainFrame.Visible = true
@@ -1718,7 +1801,7 @@ MinBtn.MouseButton1Click:Connect(function() toggleGui(false) end)
 CloseBtn.MouseButton1Click:Connect(function()
     local oldNotifyState = States.ShowNotifications
     States.ShowNotifications = false
-    
+
     Lighting.Brightness = originalLightingSettings.Brightness
     Lighting.ClockTime = originalLightingSettings.ClockTime
     Lighting.Ambient = originalLightingSettings.Ambient
@@ -1729,7 +1812,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     Lighting.GlobalShadows = originalLightingSettings.GlobalShadows
     Lighting.FogEnd = originalLightingSettings.FogEnd
     Lighting.FogStart = originalLightingSettings.FogStart
-    
+
     States.InfJump = false
     States.NoClip = false
     States.TeleportClick = false
@@ -1743,35 +1826,35 @@ CloseBtn.MouseButton1Click:Connect(function()
     States.ObjectHighlighter = false
     States.ShowNotifications = oldNotifyState
     States.Fling = false
-    
+
     stopAllJokeFeatures()
     stopFling()
-    
+
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = 16
     end
-    
+
     stopFollowTP()
     stopCameraFollow()
     stopObjectHighlighter()
-    
+
     if antiAFKConnection then antiAFKConnection:Disconnect() end
     if antiAFKLoop then task.cancel(antiAFKLoop) end
-    
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
             local highlight = p.Character:FindFirstChild("MorphESP")
             if highlight then highlight:Destroy() end
         end
     end
-    
+
     for _, bb in pairs(nameBillboards) do
         if bb then bb:Destroy() end
     end
     for _, bb in pairs(healthBillboards) do
         if bb then bb:Destroy() end
     end
-    
+
     CloseAllDropdowns()
     ScreenGui:Destroy()
 end)
