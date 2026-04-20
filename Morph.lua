@@ -1,4 +1,3 @@
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -39,7 +38,9 @@ local States = {
     -- Disturb features
     Fling = false, FlingPower = 10000,
     -- FLY FEATURE
-    Fly = false  -- <-- ДОБАВЬ ЭТУ СТРОКУ
+    Fly = false,
+    -- NO FALL DAMAGE FEATURE
+    NoFallDamage = false
 }
 
 local ESP_COLORS = {Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255)}
@@ -110,7 +111,7 @@ local function Notify(text, color)
     local stroke = Instance.new("UIStroke", notif)
     stroke.Color = color
     stroke.Thickness = 1.2
-    
+
     local label = Instance.new("TextLabel", notif)
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
@@ -119,7 +120,7 @@ local function Notify(text, color)
     label.Font = "Gotham"
     label.TextSize = 9
     label.TextScaled = true
-    
+
     notif:TweenPosition(UDim2.new(0.5, -70, 0, 30), "Out", "Quart", 0.25, true)
     task.wait(1.5)
     notif:TweenPosition(UDim2.new(0.5, -70, 0, -30), "Out", "Quart", 0.25, true)
@@ -146,12 +147,12 @@ local function startAntiAFK()
     local VirtualUser = game:GetService("VirtualUser")
     if antiAFKConnection then antiAFKConnection:Disconnect() end
     if antiAFKLoop then task.cancel(antiAFKLoop) end
-    
+
     antiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new())
     end)
-    
+
     antiAFKLoop = task.spawn(function()
         while States.AntiAFK and task.wait(50) do
             if States.AntiAFK then
@@ -177,7 +178,7 @@ local function teleportToObject(objectName)
         Notify("Enter object name!", COLORS.Accent)
         return
     end
-    
+
     local allObjects = {}
     local function searchObjects(container)
         for _, obj in pairs(container:GetChildren()) do
@@ -189,13 +190,13 @@ local function teleportToObject(objectName)
             end
         end
     end
-    
+
     searchObjects(Workspace)
-    
+
     local bestMatch = nil
     local bestDistance = math.huge
     local searchLower = string.lower(objectName)
-    
+
     for _, obj in pairs(allObjects) do
         local objNameLower = string.lower(obj.Name)
         if objNameLower:find(searchLower) or searchLower:find(objNameLower) then
@@ -211,7 +212,7 @@ local function teleportToObject(objectName)
             end
         end
     end
-    
+
     if bestMatch and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local targetPos = bestMatch:IsA("Model") and bestMatch:FindFirstChild("HumanoidRootPart") and bestMatch.HumanoidRootPart.Position or
                          (bestMatch:IsA("BasePart") and bestMatch.Position or nil)
@@ -231,11 +232,11 @@ local function teleportToCoordinates(x, y, z)
         Notify("Enter all three coordinates!", COLORS.Accent)
         return
     end
-    
+
     local numX = tonumber(x)
     local numY = tonumber(y)
     local numZ = tonumber(z)
-    
+
     if numX and numY and numZ then
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character.HumanoidRootPart.CFrame = CFrame.new(numX, numY, numZ)
@@ -251,7 +252,7 @@ local function teleportToPlayer(targetPlayer)
         Notify("Select a player!", COLORS.Accent)
         return
     end
-    
+
     if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local targetPos = targetPlayer.Character.HumanoidRootPart.Position
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -313,21 +314,21 @@ end
 
 local function startCameraFollow(targetPlayer)
     if cameraConnection then cameraConnection:Disconnect() end
-    
+
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         Notify("Player not found or not in game!", COLORS.Accent)
         return false
     end
-    
+
     if not originalCameraSubject then
         originalCameraSubject = camera.CameraSubject
     end
-    
+
     followedPlayer = targetPlayer
-    
+
     camera.CameraSubject = targetPlayer.Character.Humanoid
     camera.CameraType = Enum.CameraType.Custom
-    
+
     cameraConnection = RunService.RenderStepped:Connect(function()
         if followedPlayer and followedPlayer.Character and followedPlayer.Character:FindFirstChild("HumanoidRootPart") then
             if camera.CameraSubject ~= followedPlayer.Character.Humanoid then
@@ -338,7 +339,7 @@ local function startCameraFollow(targetPlayer)
             Notify("Camera follow stopped - player left!", COLORS.Accent)
         end
     end)
-    
+
     Notify("Camera now follows: " .. targetPlayer.Name, COLORS.Accent)
     return true
 end
@@ -348,14 +349,14 @@ local function stopCameraFollow()
         cameraConnection:Disconnect()
         cameraConnection = nil
     end
-    
+
     followedPlayer = nil
-    
+
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         camera.CameraSubject = player.Character.Humanoid
     end
     camera.CameraType = Enum.CameraType.Custom
-    
+
     Notify("Camera returned to you!", COLORS.Accent)
 end
 
@@ -365,11 +366,11 @@ local function updateHealthESP()
             local head = p.Character.Head
             local humanoid = p.Character:FindFirstChildOfClass("Humanoid")
             local bb = healthBillboards[p]
-            
+
             if States.HealthESP and humanoid then
                 local healthPercent = humanoid.Health / humanoid.MaxHealth
                 local healthColor = Color3.fromRGB(255 - (255 * healthPercent), 255 * healthPercent, 0)
-                
+
                 if not bb or not bb.Parent then
                     bb = Instance.new("BillboardGui")
                     bb.Name = "HealthESP_BB"
@@ -377,19 +378,19 @@ local function updateHealthESP()
                     bb.Adornee = head
                     bb.AlwaysOnTop = true
                     bb.StudsOffset = Vector3.new(0, 2, 0)
-                    
+
                     local healthBarBg = Instance.new("Frame", bb)
                     healthBarBg.Size = UDim2.new(1, 0, 1, 0)
                     healthBarBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
                     healthBarBg.BackgroundTransparency = 0.5
                     Instance.new("UICorner", healthBarBg).CornerRadius = UDim.new(0, 2)
-                    
+
                     local healthBar = Instance.new("Frame", healthBarBg)
                     healthBar.Name = "HealthBar"
                     healthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
                     healthBar.BackgroundColor3 = healthColor
                     Instance.new("UICorner", healthBar).CornerRadius = UDim.new(0, 2)
-                    
+
                     local healthText = Instance.new("TextLabel", bb)
                     healthText.Name = "HealthText"
                     healthText.Size = UDim2.new(1, 0, 1, 0)
@@ -398,7 +399,7 @@ local function updateHealthESP()
                     healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
                     healthText.TextSize = 7
                     healthText.Font = Enum.Font.GothamBold
-                    
+
                     bb.Parent = head
                     healthBillboards[p] = bb
                 else
@@ -471,14 +472,14 @@ end
 
 local function findAndHighlightObjects(searchTerm)
     clearObjectHighlights()
-    
+
     if not States.ObjectHighlighter or searchTerm == "" then
         return
     end
-    
+
     local searchLower = string.lower(searchTerm)
     local allParts = {}
-    
+
     local function searchForParts(container)
         for _, obj in pairs(container:GetChildren()) do
             if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
@@ -488,11 +489,11 @@ local function findAndHighlightObjects(searchTerm)
             end
         end
     end
-    
+
     searchForParts(Workspace)
-    
+
     local highlightedCount = 0
-    
+
     for _, part in pairs(allParts) do
         local partNameLower = string.lower(part.Name)
         if partNameLower:find(searchLower) then
@@ -505,12 +506,12 @@ local function findAndHighlightObjects(searchTerm)
             highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Parent = part
-            
+
             highlightedObjects[part] = highlight
             highlightedCount = highlightedCount + 1
         end
     end
-    
+
     if highlightedCount > 0 then
         Notify("Highlighted " .. highlightedCount .. " objects matching '" .. searchTerm .. "'", COLORS.Accent)
     else
@@ -523,9 +524,9 @@ local function startObjectHighlighter(searchTerm)
         objectHighlightConnection:Disconnect()
         objectHighlightConnection = nil
     end
-    
+
     findAndHighlightObjects(searchTerm)
-    
+
     objectHighlightConnection = Workspace.DescendantAdded:Connect(function(descendant)
         if States.ObjectHighlighter and highlightSearchTerm ~= "" then
             if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
@@ -571,38 +572,38 @@ end
 
 local function startSpin()
     if spinConnection then spinConnection:Disconnect() end
-    
+
     if not States.Spin then return end
-    
+
     if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
         Notify("Select at least one axis for spin!", COLORS.Accent)
         States.Spin = false
         return
     end
-    
+
     spinConnection = RunService.RenderStepped:Connect(function(deltaTime)
         if not States.Spin or not player.Character then
             return
         end
-        
+
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
-        
+
         local rotationSpeed = 720
         local rotationDelta = rotationSpeed * deltaTime
-        
+
         local cframe = rootPart.CFrame
         local angles = Vector3.new(0, 0, 0)
-        
+
         if States.SpinAxisX then angles = angles + Vector3.new(rotationDelta, 0, 0) end
         if States.SpinAxisY then angles = angles + Vector3.new(0, rotationDelta, 0) end
         if States.SpinAxisZ then angles = angles + Vector3.new(0, 0, rotationDelta) end
-        
+
         local newCFrame = cframe
         if angles.X ~= 0 then newCFrame = newCFrame * CFrame.Angles(math.rad(angles.X), 0, 0) end
         if angles.Y ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, math.rad(angles.Y), 0) end
         if angles.Z ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, 0, math.rad(angles.Z)) end
-        
+
         rootPart.CFrame = newCFrame
     end)
 end
@@ -616,36 +617,36 @@ end
 
 local function startBAF()
     if bafConnection then bafConnection:Disconnect() end
-    
+
     if not States.BAF then return end
-    
+
     bafDirection = 1
     bafTimer = 0
-    
+
     bafConnection = RunService.RenderStepped:Connect(function(deltaTime)
         if not States.BAF or not player.Character then
             return
         end
-        
+
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
-        
+
         local cycleTime = 0.1
         local moveDistance = 2
-        
+
         bafTimer = bafTimer + deltaTime
         if bafTimer >= cycleTime then
             bafTimer = bafTimer - cycleTime
             bafDirection = bafDirection * -1
         end
-        
+
         local t = bafTimer / cycleTime
         local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
-        
+
         local currentPos = rootPart.Position
         local forwardVector = rootPart.CFrame.LookVector
         local newPos = currentPos + forwardVector * offset
-        
+
         rootPart.CFrame = CFrame.new(newPos) * rootPart.CFrame.Rotation
     end)
 end
@@ -659,56 +660,56 @@ end
 
 local function startCombo()
     if comboConnection then comboConnection:Disconnect() end
-    
+
     if not States.Combo then return end
-    
+
     if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
         Notify("Select at least one axis for combo spin!", COLORS.Accent)
         States.Combo = false
         return
     end
-    
+
     bafDirection = 1
     bafTimer = 0
-    
+
     comboConnection = RunService.RenderStepped:Connect(function(deltaTime)
         if not States.Combo or not player.Character then
             return
         end
-        
+
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         if not rootPart then return end
-        
+
         local rotationSpeed = 720
         local rotationDelta = rotationSpeed * deltaTime
-        
+
         local cframe = rootPart.CFrame
         local angles = Vector3.new(0, 0, 0)
-        
+
         if States.SpinAxisX then angles = angles + Vector3.new(rotationDelta, 0, 0) end
         if States.SpinAxisY then angles = angles + Vector3.new(0, rotationDelta, 0) end
         if States.SpinAxisZ then angles = angles + Vector3.new(0, 0, rotationDelta) end
-        
+
         local newCFrame = cframe
         if angles.X ~= 0 then newCFrame = newCFrame * CFrame.Angles(math.rad(angles.X), 0, 0) end
         if angles.Y ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, math.rad(angles.Y), 0) end
         if angles.Z ~= 0 then newCFrame = newCFrame * CFrame.Angles(0, 0, math.rad(angles.Z)) end
-        
+
         local cycleTime = 0.1
         local moveDistance = 2
-        
+
         bafTimer = bafTimer + deltaTime
         if bafTimer >= cycleTime then
             bafTimer = bafTimer - cycleTime
             bafDirection = bafDirection * -1
         end
-        
+
         local t = bafTimer / cycleTime
         local offset = moveDistance * (bafDirection == 1 and t or (1 - t))
-        
+
         local forwardVector = newCFrame.LookVector
         local newPos = rootPart.Position + forwardVector * offset
-        
+
         rootPart.CFrame = CFrame.new(newPos) * newCFrame.Rotation
     end)
 end
@@ -734,28 +735,28 @@ end
 
 local function flingLoop()
     local hrp, c, vel, movel = nil, nil, nil, 0.1
-    
+
     while States.Fling do
         RunService.Heartbeat:Wait()
-        
+
         if States.Fling then
             while States.Fling and not (c and c.Parent and hrp and hrp.Parent) do
                 RunService.Heartbeat:Wait()
                 c = player.Character
                 hrp = c and c:FindFirstChild("HumanoidRootPart")
             end
-            
+
             if States.Fling and c and c.Parent and hrp and hrp.Parent then
                 vel = hrp.Velocity
                 hrp.Velocity = vel * States.FlingPower + Vector3.new(0, States.FlingPower, 0)
                 RunService.RenderStepped:Wait()
-                
+
                 if c and c.Parent and hrp and hrp.Parent then
                     hrp.Velocity = vel
                 end
-                
+
                 RunService.Stepped:Wait()
-                
+
                 if c and c.Parent and hrp and hrp.Parent then
                     hrp.Velocity = vel + Vector3.new(0, movel, 0)
                     movel = movel * -1
@@ -771,11 +772,12 @@ local function startFling()
         task.cancel(flingThread)
         flingThread = nil
     end
-    
+
     States.Fling = true
     flingThread = task.spawn(flingLoop)
     Notify("Fling ON - Power: " .. States.FlingPower, COLORS.Accent)
 end
+
 -- ================= FLY FEATURE =================
 local flyConnection = nil
 local flyBodyVelocity = nil
@@ -785,15 +787,15 @@ local function startFly()
         flyConnection:Disconnect()
         flyConnection = nil
     end
-    
+
     if not player.Character then return end
-    
+
     local character = player.Character
     local humanoid = character:FindFirstChild("Humanoid")
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    
+
     if not humanoid or not hrp then return end
-    
+
     humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
     humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
@@ -804,35 +806,32 @@ local function startFly()
     humanoid:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
     humanoid.PlatformStand = true
     humanoid.AutoRotate = true
-    
+
     local flySpeed = 50
-    
+
     flyConnection = RunService.RenderStepped:Connect(function(deltaTime)
         if not States.Fly or not player.Character then return end
-        
+
         local currentHrp = player.Character:FindFirstChild("HumanoidRootPart")
         local currentHumanoid = player.Character:FindFirstChild("Humanoid")
         if not currentHrp or not currentHumanoid then return end
-        
+
         local camera = workspace.CurrentCamera
         local moveDir = currentHumanoid.MoveDirection
-        
+
         if moveDir.Magnitude > 0 then
-            -- Движение относительно камеры
             local moveVector = camera.CFrame:VectorToWorldSpace(moveDir)
             local newPos = currentHrp.Position + moveVector * flySpeed * deltaTime
-            
-            -- Поворачиваем персонажа
+
             if moveDir.Z ~= 0 or moveDir.X ~= 0 then
                 local lookDir = Vector3.new(moveVector.X, 0, moveVector.Z).Unit
                 currentHrp.CFrame = CFrame.new(currentHrp.Position, currentHrp.Position + lookDir)
             end
-            
-            -- Перемещаем
+
             currentHrp.CFrame = CFrame.new(newPos) * currentHrp.CFrame.Rotation
         end
     end)
-    
+
     Notify("Fly ON - Joystick moves relative to camera!", COLORS.Accent)
 end
 
@@ -841,16 +840,15 @@ local function stopFly()
         flyConnection:Disconnect()
         flyConnection = nil
     end
-    
+
     if flyBodyVelocity then
         flyBodyVelocity:Destroy()
         flyBodyVelocity = nil
     end
-    
+
     if player.Character then
         local humanoid = player.Character:FindFirstChild("Humanoid")
         if humanoid then
-            -- Включаем гравитацию обратно
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
@@ -862,25 +860,59 @@ local function stopFly()
             humanoid.PlatformStand = false
         end
     end
-    
+
     Notify("Fly OFF", COLORS.Accent)
 end
+
+-- ================= NO FALL DAMAGE FEATURE =================
+local function enableNoFallDamage()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+        
+        -- Пытаемся найти и удалить скрипт урона от падения (если есть)
+        local fallDamageScript = character:FindFirstChild("FallDamageScript") or character:FindFirstChild("FallDamage")
+        if fallDamageScript then
+            fallDamageScript:Destroy()
+        end
+        
+        -- Дополнительно проверяем в дочерних объектах
+        for _, child in pairs(character:GetDescendants()) do
+            if child:IsA("Script") and (child.Name:lower():find("fall") or child.Name:lower():find("damage")) then
+                child:Destroy()
+            end
+        end
+    end
+end
+
+local function disableNoFallDamage()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+    end
+end
+
 local function stopFling()
     States.Fling = false
     if flingThread then
         task.cancel(flingThread)
         flingThread = nil
     end
-    
-    -- === FIX: Сброс скорости при выключении ===
+
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
-        hrp.Velocity = Vector3.new(0, 0, 0)  -- Полный сброс скорости
-        -- Дополнительно: сброс угловой скорости
+        hrp.Velocity = Vector3.new(0, 0, 0)
         hrp.RotVelocity = Vector3.new(0, 0, 0)
     end
-    -- ========================================
-    
+
     Notify("Fling OFF", COLORS.Accent)
 end
 
@@ -950,7 +982,6 @@ Title.Font = "GothamBold"
 Title.TextSize = 10
 Title.TextXAlignment = "Left"
 
-if States.Fly then stopFly() end
 local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 22, 0, 22)
 CloseBtn.Position = UDim2.new(1, -26, 0, 1)
@@ -958,7 +989,6 @@ CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "x"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.TextSize = 14
-
 
 local MinBtn = Instance.new("TextButton", Header)
 MinBtn.Size = UDim2.new(0, 22, 0, 22)
@@ -997,20 +1027,20 @@ local function CreatePage(name, order)
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.Visible = (order == 1)
     scrollFrame.ZIndex = 1
-    
+
     local listLayout = Instance.new("UIListLayout", scrollFrame)
     listLayout.Padding = UDim.new(0, 4)
     listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
+
     local function updateCanvas()
         scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 8)
     end
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
     task.wait()
     updateCanvas()
-    
+
     Pages[name] = scrollFrame
-    
+
     local btn = Instance.new("TextButton", Sidebar)
     btn.Size = UDim2.new(0.85, 0, 0, 26)
     btn.BackgroundColor3 = (order == 1) and Color3.fromRGB(30, 60, 65) or COLORS.Inactive
@@ -1020,7 +1050,7 @@ local function CreatePage(name, order)
     btn.TextSize = 9
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
     TabBtns[name] = btn
-    
+
     btn.MouseButton1Click:Connect(function()
         CloseAllDropdowns()
         for n, pg in pairs(Pages) do
@@ -1039,7 +1069,7 @@ CreatePage("Disturb", 6)
 
 local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, colorList)
     local bgColor = GetRowColor(order)
-    
+
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, 0, 0, 26)
     frame.BackgroundColor3 = bgColor
@@ -1047,7 +1077,7 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
     frame.LayoutOrder = order
     frame.ZIndex = 1
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
+
     local label = Instance.new("TextLabel", frame)
     label.Text = text
     label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -1058,7 +1088,7 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
     label.TextSize = 9
     label.TextXAlignment = "Left"
     label.ZIndex = 1
-    
+
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(0, 24, 0, 13)
     btn.Position = UDim2.new(1, -70, 0.5, -6.5)
@@ -1066,14 +1096,14 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
     btn.Text = ""
     btn.ZIndex = 1
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-    
+
     local circle = Instance.new("Frame", btn)
     circle.Size = UDim2.new(0, 9, 0, 9)
     circle.Position = UDim2.new(0, 2, 0.5, -4.5)
     circle.BackgroundColor3 = COLORS.Text
     circle.ZIndex = 1
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
-    
+
     local colorBox = Instance.new("TextButton", frame)
     colorBox.Size = UDim2.new(0, 16, 0, 16)
     colorBox.Position = UDim2.new(1, -38, 0.15, 0)
@@ -1082,7 +1112,7 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
     colorBox.Visible = (colorVar ~= nil)
     colorBox.ZIndex = 1
     Instance.new("UICorner", colorBox).CornerRadius = UDim.new(0, 3)
-    
+
     if colorVar and colorList then
         colorBox.MouseButton1Click:Connect(function()
             States[colorIndexVar] = (States[colorIndexVar] % #colorList) + 1
@@ -1093,16 +1123,16 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
             end
         end)
     end
-    
+
     local function update()
         TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = States[key] and COLORS.Accent or COLORS.Inactive}):Play()
         TweenService:Create(circle, TweenInfo.new(0.2), {Position = States[key] and UDim2.new(1, -13, 0.5, -4.5) or UDim2.new(0, 2, 0.5, -4.5)}):Play()
     end
-    
+
     btn.MouseButton1Click:Connect(function()
         States[key] = not States[key]
         update()
-        
+
         if key == "Spin" then
             if States.Spin then
                 if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
@@ -1194,28 +1224,35 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
                 stopFling()
             end
         elseif key == "Fly" then
-    		if States.Fly then
-        		if States.Spin then
-            		States.Spin = false
-            		stopSpin()
-        		end
-        		if States.BAF then
-            		States.BAF = false
-            		stopBAF()
-        		end
-        		if States.Combo then
-            		States.Combo = false
-            		stopCombo()
-        		end
-        		if States.Fling then
-            		States.Fling = false
-            		stopFling()
-        		end
-        		startFly()
-    		else
-        		stopFly()
-    		end
-    		Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
+            if States.Fly then
+                if States.Spin then
+                    States.Spin = false
+                    stopSpin()
+                end
+                if States.BAF then
+                    States.BAF = false
+                    stopBAF()
+                end
+                if States.Combo then
+                    States.Combo = false
+                    stopCombo()
+                end
+                if States.Fling then
+                    States.Fling = false
+                    stopFling()
+                end
+                startFly()
+            else
+                stopFly()
+            end
+            Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
+        elseif key == "NoFallDamage" then
+            if States.NoFallDamage then
+                enableNoFallDamage()
+            else
+                disableNoFallDamage()
+            end
+            Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
         elseif key == "AntiAFK" and States.AntiAFK then
             startAntiAFK()
         elseif key == "Light" then
@@ -1239,13 +1276,13 @@ local function CreateToggle(parent, text, key, order, colorVar, colorIndexVar, c
             Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
         end
     end)
-    
+
     return update, colorBox
 end
 
 local function CreateAxisToggle(parent, text, key, order)
     local bgColor = GetRowColor(order)
-    
+
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, 0, 0, 26)
     frame.BackgroundColor3 = bgColor
@@ -1253,7 +1290,7 @@ local function CreateAxisToggle(parent, text, key, order)
     frame.LayoutOrder = order
     frame.ZIndex = 1
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
+
     local label = Instance.new("TextLabel", frame)
     label.Text = text
     label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -1264,7 +1301,7 @@ local function CreateAxisToggle(parent, text, key, order)
     label.TextSize = 9
     label.TextXAlignment = "Left"
     label.ZIndex = 1
-    
+
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(0, 24, 0, 13)
     btn.Position = UDim2.new(1, -12, 0.5, -6.5)
@@ -1272,23 +1309,23 @@ local function CreateAxisToggle(parent, text, key, order)
     btn.Text = ""
     btn.ZIndex = 1
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-    
+
     local circle = Instance.new("Frame", btn)
     circle.Size = UDim2.new(0, 9, 0, 9)
     circle.Position = UDim2.new(0, 2, 0.5, -4.5)
     circle.BackgroundColor3 = COLORS.Text
     circle.ZIndex = 1
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
-    
+
     local function update()
         TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = States[key] and COLORS.Accent or COLORS.Inactive}):Play()
         TweenService:Create(circle, TweenInfo.new(0.2), {Position = States[key] and UDim2.new(1, -13, 0.5, -4.5) or UDim2.new(0, 2, 0.5, -4.5)}):Play()
     end
-    
+
     btn.MouseButton1Click:Connect(function()
         States[key] = not States[key]
         update()
-        
+
         if States.Spin and key ~= "Spin" then
             if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
                 States.Spin = false
@@ -1309,7 +1346,7 @@ local function CreateAxisToggle(parent, text, key, order)
                 end
             end
         end
-        
+
         if States.Combo and key ~= "Combo" then
             if not States.SpinAxisX and not States.SpinAxisY and not States.SpinAxisZ then
                 States.Combo = false
@@ -1330,16 +1367,16 @@ local function CreateAxisToggle(parent, text, key, order)
                 end
             end
         end
-        
+
         Notify(text .. (States[key] and " ON" or " OFF"), COLORS.Accent)
     end)
-    
+
     return update
 end
 
 local function CreateButton(parent, text, order, callback)
     local bgColor = GetRowColor(order)
-    
+
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(1, 0, 0, 26)
     btn.BackgroundColor3 = bgColor
@@ -1350,14 +1387,14 @@ local function CreateButton(parent, text, order, callback)
     btn.LayoutOrder = order
     btn.ZIndex = 1
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
-    
+
     btn.MouseButton1Click:Connect(callback)
     return btn
 end
 
 local function CreateInputRow(parent, labelText, placeholder, defaultValue, order, callback)
     local bgColor = GetRowColor(order)
-    
+
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, 0, 0, 40)
     frame.BackgroundColor3 = bgColor
@@ -1365,7 +1402,7 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
     frame.LayoutOrder = order
     frame.ZIndex = 1
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
+
     local label = Instance.new("TextLabel", frame)
     label.Text = labelText
     label.Size = UDim2.new(1, 0, 0, 14)
@@ -1376,7 +1413,7 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
     label.TextSize = 8
     label.TextXAlignment = "Left"
     label.ZIndex = 1
-    
+
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(1, -12, 0, 20)
     input.Position = UDim2.new(0, 6, 0, 18)
@@ -1387,7 +1424,7 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
     input.TextSize = 9
     input.ZIndex = 1
     Instance.new("UICorner", input).CornerRadius = UDim.new(0, 3)
-    
+
     if callback then
         input.FocusLost:Connect(function(enterPressed)
             if enterPressed then
@@ -1395,13 +1432,13 @@ local function CreateInputRow(parent, labelText, placeholder, defaultValue, orde
             end
         end)
     end
-    
+
     return input
 end
 
 local function CreateDropdown(parent, labelText, order, onSelect)
     local bgColor = GetRowColor(order)
-    
+
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, 0, 0, 44)
     frame.BackgroundColor3 = bgColor
@@ -1409,7 +1446,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
     frame.LayoutOrder = order
     frame.ZIndex = 10
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 3)
-    
+
     local label = Instance.new("TextLabel", frame)
     label.Text = labelText
     label.Size = UDim2.new(1, -8, 0, 14)
@@ -1420,7 +1457,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
     label.TextSize = 8
     label.TextXAlignment = "Left"
     label.ZIndex = 10
-    
+
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -12, 0, 20)
     button.Position = UDim2.new(0, 6, 0, 20)
@@ -1431,7 +1468,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
     button.TextSize = 9
     button.ZIndex = 10
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 3)
-    
+
     local listContainer = Instance.new("Frame", ScreenGui)
     listContainer.Size = UDim2.new(0, 150, 0, 0)
     listContainer.Position = UDim2.new(0, 0, 0, 0)
@@ -1440,7 +1477,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
     listContainer.Visible = false
     listContainer.ZIndex = 100
     Instance.new("UICorner", listContainer).CornerRadius = UDim.new(0, 5)
-    
+
     local listScroll = Instance.new("ScrollingFrame", listContainer)
     listScroll.Size = UDim2.new(1, 0, 1, -4)
     listScroll.Position = UDim2.new(0, 0, 0, 2)
@@ -1450,29 +1487,29 @@ local function CreateDropdown(parent, labelText, order, onSelect)
     listScroll.ScrollBarImageColor3 = COLORS.Accent
     listScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     listScroll.ZIndex = 100
-    
+
     local listLayout = Instance.new("UIListLayout", listScroll)
     listLayout.Padding = UDim.new(0, 2)
-    
+
     local dropdownData = {button = button, frame = frame, container = listContainer}
     table.insert(activeDropdowns, dropdownData)
-    
+
     local function updateList()
         for _, v in pairs(listScroll:GetChildren()) do
             if v:IsA("TextButton") then v:Destroy() end
         end
-        
+
         local players = {}
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player then
                 table.insert(players, p.Name)
             end
         end
-        
+
         if #players == 0 then
             table.insert(players, "No players")
         end
-        
+
         for _, name in pairs(players) do
             local btn = Instance.new("TextButton", listScroll)
             btn.Size = UDim2.new(1, -4, 0, 22)
@@ -1484,7 +1521,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
             btn.TextSize = 9
             btn.ZIndex = 100
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 3)
-            
+
             if name ~= "No players" then
                 btn.MouseButton1Click:Connect(function()
                     button.Text = name
@@ -1500,21 +1537,21 @@ local function CreateDropdown(parent, labelText, order, onSelect)
                 end)
             end
         end
-        
+
         task.wait()
         local contentHeight = #players * 24 + 4
         listScroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
         local listHeight = math.min(contentHeight, 130)
         listContainer.Size = UDim2.new(0, 150, 0, listHeight)
     end
-    
+
     button.MouseButton1Click:Connect(function()
         CloseAllDropdowns()
         updateList()
         local absPos = button.AbsolutePosition
         listContainer.Position = UDim2.new(0, absPos.X, 0, absPos.Y + button.AbsoluteSize.Y)
         listContainer.Visible = true
-        
+
         local function closeOnClick(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local mousePos = Vector2.new(input.Position.X, input.Position.Y)
@@ -1529,7 +1566,7 @@ local function CreateDropdown(parent, labelText, order, onSelect)
         end
         UserInputService.InputBegan:Connect(closeOnClick)
     end)
-    
+
     return dropdownData
 end
 
@@ -1540,9 +1577,9 @@ local u1, _ = CreateToggle(Pages.Player, "Inf Jump", "InfJump", rowOrder); rowOr
 local u2, _ = CreateToggle(Pages.Player, "No Clip", "NoClip", rowOrder); rowOrder = rowOrder + 1
 local u3, _ = CreateToggle(Pages.Player, "TP on Click", "TeleportClick", rowOrder); rowOrder = rowOrder + 1
 local u4, _ = CreateToggle(Pages.Player, "Anti AFK", "AntiAFK", rowOrder); rowOrder = rowOrder + 1
--- Добавь это после других переключателей (перед speedInput)
-
 local u6, _ = CreateToggle(Pages.Player, "Fly", "Fly", rowOrder); rowOrder = rowOrder + 1
+local u7, _ = CreateToggle(Pages.Player, "No Fall Damage", "NoFallDamage", rowOrder); rowOrder = rowOrder + 1
+
 local speedInput = CreateInputRow(Pages.Player, "Player Speed", "Speed value", "16", rowOrder, function(value)
     local newSpeed = tonumber(value) or 16
     if player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -1684,8 +1721,11 @@ local resetBtn = CreateButton(Pages.Global, "RESET ALL DATA", rowOrder, function
     end
     States.ShowNotifications = true
     States.FlingPower = 10000
+    States.NoFallDamage = false
+    disableNoFallDamage()
+    
     v1(); v2(); v3(); v4(); t1(); t2(); t3()
-    u1(); u2(); u3(); u4(); u5()
+    u1(); u2(); u3(); u4(); u5(); u6(); u7()
     if speedInput then speedInput.Text = "16" end
     if objectHighlightInput then objectHighlightInput.Text = "" end
     highlightSearchTerm = ""
@@ -1767,218 +1807,148 @@ rowOrder = rowOrder + 1
 
 -- ============ INITIALIZATION & RUN LOOP ============
 
--- ============ INITIALIZATION & RUN LOOP ============
-
--- Функция для применения всех активных фич
 local function reapplyAllActiveFeatures()
-	-- В функции reapplyAllActiveFeatures() добавь:
-	if States.Fly then
-    	stopFly()
-    	task.wait(0.1)
-    	startFly()
-	end
+    if States.Fly then
+        stopFly()
+        task.wait(0.1)
+        startFly()
+    end
+    
+    if States.NoFallDamage then
+        enableNoFallDamage()
+    end
+    
     if not player.Character then return end
     local character = player.Character
     local humanoid = character:FindFirstChild("Humanoid")
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    
+
     if not humanoid or not hrp then return end
-    
-    -- Применяем скорость (если изменена)
-    if speedInput and speedInput.Text and speedInput.Text ~= "16" then
-        local speedVal = tonumber(speedInput.Text) or 16
-        humanoid.WalkSpeed = speedVal
+
+    if speedInput and speedInput.Text then
+        local newSpeed = tonumber(speedInput.Text) or 16
+        humanoid.WalkSpeed = newSpeed
     end
-    
-    -- Применяем NoClip
+
+    if States.InfJump then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+        humanoid.JumpPower = 50
+    end
+
     if States.NoClip then
-        task.wait(0.1)
-        for _, v in pairs(character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
         end
     end
-    
-    -- Перезапускаем подсветку объектов
-    if States.ObjectHighlighter and highlightSearchTerm ~= "" then
-        stopObjectHighlighter()
-        task.wait(0.1)
-        startObjectHighlighter(highlightSearchTerm)
-    end
-    
-    -- Перезапускаем Light
-    if States.Light then
-        setLighting(true)
-    end
-    
-    -- Перезапускаем шутки
-    if States.Spin then
-        stopSpin()
-        task.wait(0.1)
-        startSpin()
-    end
-    
-    if States.BAF then
-        stopBAF()
-        task.wait(0.1)
-        startBAF()
-    end
-    
-    if States.Combo then
-        stopCombo()
-        task.wait(0.1)
-        startCombo()
-    end
-    
-    -- Перезапускаем Fling
-    if States.Fling then
-        States.Fling = false
-        stopFling()
-        task.wait(0.1)
-        States.Fling = true
-        startFling()
-    end
 end
 
--- Отслеживаем респаун
 player.CharacterAdded:Connect(function(character)
-    Notify("Respawned! Reapplying features...", COLORS.Accent)
     task.wait(0.5)
     reapplyAllActiveFeatures()
+    
+    if States.NoFallDamage then
+        enableNoFallDamage()
+    end
 end)
 
--- Первое применение (если персонаж уже есть)
-if player.Character then
-    task.wait(0.5)
-    reapplyAllActiveFeatures()
-end
+RunService.Heartbeat:Connect(function()
+    if not player.Character then return end
+    
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
 
--- Остальной код без изменений
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function() task.wait(0.5) end)
-end)
-
-Players.PlayerRemoving:Connect(function(p)
-    if nameBillboards[p] then nameBillboards[p]:Destroy() end
-    if healthBillboards[p] then healthBillboards[p]:Destroy() end
-    if followedPlayer == p then stopCameraFollow() end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if States.NoClip and player.Character then
-        for _, v in pairs(player.Character:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = false end
-        end
+    if States.InfJump then
+        humanoid.Jump = true
     end
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlight = p.Character:FindFirstChild("MorphESP")
-            if States.ESP then
-                if not highlight then
-                    highlight = Instance.new("Highlight", p.Character)
-                    highlight.Name = "MorphESP"
-                end
-                highlight.FillColor = ESP_COLORS[States.ESPColorIndex]
-                highlight.OutlineTransparency = 1
-                highlight.FillTransparency = 0.2
-                highlight.DepthMode = "AlwaysOnTop"
-            elseif highlight then
-                highlight:Destroy()
+    if States.NoClip then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
         end
     end
 
-    updateNameESP()
-    updateHealthESP()
-end)
+    if States.ESP then
+        updateHealthESP()
+    end
 
-UserInputService.JumpRequest:Connect(function()
-    if States.InfJump and player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid:ChangeState("Jumping")
+    if States.NameESP then
+        updateNameESP()
     end
 end)
 
-setupTeleportClick()
-setupTapToIdentify()
-if States.AntiAFK then startAntiAFK() end
-
--- GUI логика (без изменений)
-local function toggleGui(open)
-    if open then
-        MainFrame.Visible = true
-        OpenBtn.Visible = false
-        MainFrame:TweenSize(UDim2.new(0, 260, 0, 280), "Out", "Quart", 0.2, true)
+OpenBtn.MouseButton1Click:Connect(function()
+    if MainFrame.Visible then
+        MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), "Out", "Quart", 0.2, true)
+        task.wait(0.15)
+        MainFrame.Visible = false
     else
-        CloseAllDropdowns()
-        MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), "In", "Quart", 0.2, true, function()
-            MainFrame.Visible = false
-            OpenBtn.Visible = true
-        end)
+        MainFrame.Visible = true
+        MainFrame:TweenSize(UDim2.new(0, 260, 0, 280), "Out", "Quart", 0.25, true)
     end
-end
-
-OpenBtn.MouseButton1Click:Connect(function() toggleGui(true) end)
-MinBtn.MouseButton1Click:Connect(function() toggleGui(false) end)
+    CloseAllDropdowns()
+end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    local oldNotifyState = States.ShowNotifications
-    States.ShowNotifications = false
-
-    Lighting.Brightness = originalLightingSettings.Brightness
-    Lighting.ClockTime = originalLightingSettings.ClockTime
-    Lighting.Ambient = originalLightingSettings.Ambient
-    Lighting.ColorShift_Top = originalLightingSettings.ColorShift_Top
-    Lighting.ColorShift_Bottom = originalLightingSettings.ColorShift_Bottom
-    Lighting.OutdoorAmbient = originalLightingSettings.OutdoorAmbient
-    Lighting.ExposureCompensation = originalLightingSettings.ExposureCompensation
-    Lighting.GlobalShadows = originalLightingSettings.GlobalShadows
-    Lighting.FogEnd = originalLightingSettings.FogEnd
-    Lighting.FogStart = originalLightingSettings.FogStart
-
-    States.InfJump = false
-    States.NoClip = false
-    States.TeleportClick = false
-    States.AntiAFK = false
-    States.ESP = false
-    States.NameESP = false
-    States.HealthESP = false
-    States.Light = false
-    States.FollowTP = false
-    States.TapToIdentify = false
-    States.ObjectHighlighter = false
-    States.ShowNotifications = oldNotifyState
-    States.Fling = false
-
-    stopAllJokeFeatures()
-    stopFling()
-
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.WalkSpeed = 16
-    end
-
-    stopFollowTP()
-    stopCameraFollow()
-    stopObjectHighlighter()
-
-    if antiAFKConnection then antiAFKConnection:Disconnect() end
-    if antiAFKLoop then task.cancel(antiAFKLoop) end
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlight = p.Character:FindFirstChild("MorphESP")
-            if highlight then highlight:Destroy() end
-        end
-    end
-
-    for _, bb in pairs(nameBillboards) do
-        if bb then bb:Destroy() end
-    end
-    for _, bb in pairs(healthBillboards) do
-        if bb then bb:Destroy() end
-    end
-
+    MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), "Out", "Quart", 0.2, true)
+    task.wait(0.15)
+    MainFrame.Visible = false
     CloseAllDropdowns()
-    ScreenGui:Destroy()
 end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame:TweenSize(UDim2.new(0, 0, 0, 0), "Out", "Quart", 0.2, true)
+    task.wait(0.15)
+    MainFrame.Visible = false
+    CloseAllDropdowns()
+end)
+
+setupTapToIdentify()
+setupTeleportClick()
+
+if States.AntiAFK then
+    startAntiAFK()
+end
+
+if States.Light then
+    setLighting(true)
+end
+
+if States.FollowTP and selectedFollowPlayer then
+    startFollowTP(selectedFollowPlayer)
+end
+
+if States.ObjectHighlighter and highlightSearchTerm ~= "" then
+    startObjectHighlighter(highlightSearchTerm)
+end
+
+if States.Spin then
+    startSpin()
+end
+
+if States.BAF then
+    startBAF()
+end
+
+if States.Combo then
+    startCombo()
+end
+
+if States.Fling then
+    startFling()
+end
+
+if States.Fly then
+    startFly()
+end
+
+if States.NoFallDamage then
+    enableNoFallDamage()
+end
+
+Notify("Morph Cheat loaded!", COLORS.Accent)
+Notify("Click M to open menu", COLORS.Accent)
